@@ -4,17 +4,19 @@ import { NextRequest } from "next/server";
  * Centrally manages IP extraction for the entire application.
  * Normalizes localhost and ensures production-safe header priority.
  * Handles multi-proxy x-forwarded-for headers.
+ * Accepts either NextRequest or Headers object.
  */
-export function getClientIp(request: NextRequest): string {
-    const xForwardedFor = request.headers.get("x-forwarded-for");
-    const xRealIp = request.headers.get("x-real-ip");
+export function getClientIp(request: NextRequest | { headers: Headers }): string {
+    const headers = request instanceof NextRequest ? request.headers : request.headers;
+    const xForwardedFor = headers.get("x-forwarded-for");
+    const xRealIp = headers.get("x-real-ip");
 
     // 1. x-forwarded-for (take the first IP in the list)
     let ip = xForwardedFor?.split(",")[0].trim() ||
         // 2. x-real-ip
         xRealIp ||
-        // 3. request.ip
-        (request as any).ip ||
+        // 3. request.ip (only for NextRequest)
+        (request instanceof NextRequest ? (request as any).ip : null) ||
         // 4. Default fallback
         "127.0.0.1";
 

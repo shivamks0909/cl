@@ -1,11 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getUnifiedDb } from '@/lib/unified-db'
+import { getClientIp } from '@/lib/getClientIp'
 
 export const runtime = 'nodejs'
 
 export async function POST(request: NextRequest) {
   try {
     const { pid, oi_session, uid } = await request.json()
+    const ip = getClientIp(request)
     
     if (!pid || !oi_session) {
       return NextResponse.json(
@@ -40,12 +42,12 @@ export async function POST(request: NextRequest) {
       .eq('project_code', pid)
       .maybeSingle()
     
-    // Use fallback project if not found
-    const projectId = project?.id || 'external_traffic_fallback'
+    // Use fallback project if not found (null project_id for external traffic)
+    const projectId = project?.id || null
     const projectCode = project?.project_code || pid
     const projectName = project?.project_name || 'Mock Survey'
     
-    // Create response record with oi_session
+    // Create response record with oi_session and IP
     const { data: response, error: insertError } = await db
       .from('responses')
       .insert([{
@@ -57,6 +59,7 @@ export async function POST(request: NextRequest) {
         oi_session: oi_session,
         session_token: oi_session,
         status: 'in_progress',
+        ip: ip,
         created_at: new Date().toISOString()
       }])
       .select()

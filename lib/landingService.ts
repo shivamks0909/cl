@@ -29,7 +29,8 @@ export async function updateResponseStatus(
     userUid: string,
     newStatus: string,
     clickid?: string | null,
-    lastLandingPage?: string | null
+    lastLandingPage?: string | null,
+    ipAddress?: string | null
 ): Promise<{ id: string; status: string; uid: string; ip: string; supplier_uid?: string; project_code?: string; client_uid_sent?: string; hash_identifier?: string; clickid?: string } | null> {
     const db = await createAdminClient()
     if (!db) return null
@@ -116,6 +117,7 @@ export async function updateResponseStatus(
     }
     if (clickid) updatePayload.hash = clickid
     if (lastLandingPage) updatePayload.last_landing_page = lastLandingPage
+    if (ipAddress) updatePayload.ip = ipAddress
 
     const terminalStatuses = ['complete', 'terminate', 'quota', 'security_terminate', 'duplicate_ip', 'duplicate_string', 'terminated', 'quota_full']
     if (terminalStatuses.includes(newStatus)) {

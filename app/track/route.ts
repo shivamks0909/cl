@@ -112,6 +112,7 @@ export async function GET(request: NextRequest) {
 
         const redirectPath = errorMap[result.errorType || 'SERVER_ERROR'] || `/paused?title=ENTRY_DENIED`
         const finalRedirect = new URL(redirectPath, request.url)
+        finalRedirect.searchParams.set('ip', ip)
         
         // Pass clickid if available for status persistence
         if (result.responseData?.oi_session) {
@@ -127,13 +128,3 @@ export async function GET(request: NextRequest) {
         return NextResponse.redirect(new URL('/paused?title=SERVER_ERROR', request.url))
     }
 }
-
-
-
-
-
-
-
-// Debug logging added - check server logs
-
-// Debug logging added - check server logs

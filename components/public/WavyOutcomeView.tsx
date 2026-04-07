@@ -6,6 +6,9 @@ import { useSessionParams } from "../../lib/page-params";
 interface WavyOutcomeViewProps {
   status: string;
   statusKeyword: string;
+  session?: string;
+  ip?: string;
+  loi?: number;
 }
 
 const STATUS_CONFIG: Record<string, { headline: string; sub: string; colors: string[]; glow: string }> = {
@@ -47,16 +50,19 @@ const STATUS_CONFIG: Record<string, { headline: string; sub: string; colors: str
   },
 };
 
-export function WavyOutcomeView({ status, statusKeyword }: WavyOutcomeViewProps) {
+export function WavyOutcomeView({ status, statusKeyword, session: sessionProp, ip, loi }: WavyOutcomeViewProps) {
   const params = useSessionParams();
   const [stats, setStats] = useState<any>(null);
   const [isLoading, setIsLoading] = useState(false);
 
+  // Use session from prop (passed by server component) or fall back to URL params
+  const effectiveSession = sessionProp || params.session;
+
   useEffect(() => {
     // Tier 1: fetch by oi_session (most accurate, UUID-based)
-    if (params.session && params.session !== "-") {
+    if (effectiveSession && effectiveSession !== "-") {
       setIsLoading(true);
-      fetch(`/api/respondent-stats/${params.session}`)
+      fetch(`/api/respondent-stats/${effectiveSession}`)
         .then(r => r.ok ? r.json() : null)
         .then(data => {
           if (data) { setStats(data); setIsLoading(false); return; }
@@ -70,7 +76,7 @@ export function WavyOutcomeView({ status, statusKeyword }: WavyOutcomeViewProps)
     // (TrustSample/Quantclix redirect back without oi_session)
     tryLookupByUidCode();
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [params.session, params.uid, params.pid]);
+  }, [effectiveSession, params.uid, params.pid]);
 
   function tryLookupByUidCode() {
     const uid = params.uid;
@@ -88,7 +94,7 @@ export function WavyOutcomeView({ status, statusKeyword }: WavyOutcomeViewProps)
 
   const sanitize = (val: string | null | undefined) => {
     if (!val) return "—";
-    const bad = ["n/a", "[uid]", "{uid}", "[rid]", "{rid}", "null", "undefined", "-"];
+    const bad = ["n/a", "[uid]", "{uid}", "[rid]", "{rid}", "null", "undefined", "-", "[ip]", "{ip}", "{IP}", "[IP]"];
     return bad.includes(val.toLowerCase().trim()) ? "—" : val;
   };
 
@@ -100,7 +106,9 @@ export function WavyOutcomeView({ status, statusKeyword }: WavyOutcomeViewProps)
     const m = Math.floor(s / 60), sec = s % 60;
     return m > 0 ? `${m}m ${sec}s` : `${sec}s`;
   };
-  const loiStr = stats?.loi !== undefined ? `${stats.loi} mins` : formatLoi(loiRaw);
+  const loiStr = stats?.loi !== undefined 
+    ? `${stats.loi} mins` 
+    : (loi !== undefined ? `${loi} mins` : formatLoi(loiRaw));
   const dateStr = stats?.endTime
     ? new Date(stats.endTime * 1000).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" })
     : new Date().toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" });
@@ -114,7 +122,7 @@ export function WavyOutcomeView({ status, statusKeyword }: WavyOutcomeViewProps)
   const cards = [
     { label: "Project ID", value: pid },
     { label: "User ID", value: uid },
-    { label: "IP Address", value: sanitize(stats?.ip || params.ip) },
+    { label: "IP Address", value: sanitize(ip || params.ip || stats?.ip) },
     { label: "Status", value: status },
     { label: "LOI", value: loiStr },
     { label: "Date", value: dateStr },

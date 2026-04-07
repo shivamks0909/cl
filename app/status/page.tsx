@@ -1,13 +1,17 @@
 import React, { Suspense } from 'react'
-import { Card, CardContent } from "../../components/ui/card"
+import { headers } from 'next/headers'
 import { WavyOutcomeView } from '../../components/public/WavyOutcomeView'
 import { getUnifiedDb } from '../../lib/unified-db'
+import { getClientIp } from '../../lib/getClientIp'
 
 export const dynamic = 'force-dynamic'
 export const runtime = "nodejs";
 
 async function StatusContent({ searchParams }: { searchParams: Promise<{ [key: string]: string | string[] | undefined }> }) {
     const resolvedParams = await searchParams
+    const head = await headers()
+    const ip = getClientIp({ headers: head })
+
     const type = typeof resolvedParams.type === 'string' ? resolvedParams.type : 'complete'
     const clickid = typeof resolvedParams.clickid === 'string' ? resolvedParams.clickid : (typeof resolvedParams.cid === 'string' ? resolvedParams.cid : null)
     const urlUid = typeof resolvedParams.uid === 'string' ? resolvedParams.uid : null
@@ -54,30 +58,54 @@ async function StatusContent({ searchParams }: { searchParams: Promise<{ [key: s
             dbStatus = "complete"
     }
 
-    // Attempt status persistence
+    let dbLoi: number | undefined = undefined
+    let dbIp: string | undefined = undefined
+
+    // Attempt status persistence and record retrieval
     if (clickid || urlUid) {
         try {
             const { database: db } = await getUnifiedDb()
             if (db) {
-                let query = db.from('responses').update({ 
+                // 1. Try updating the status if it's currently in progress
+                let updateQuery = db.from('responses').update({ 
                     status: dbStatus,
                     updated_at: new Date().toISOString()
                 }).in('status', ['in_progress', 'started'])
 
                 if (clickid) {
-                    // Method 1: Precision update by session token
-                    await query.eq('oi_session', clickid)
+                    await updateQuery.eq('oi_session', clickid)
                 } else if (urlUid && urlCode) {
-                    // Method 2: Update by UID + Original Project Code
-                    // Note: We ignore urlCode if it looks like a generic placeholder
-                    await query.eq('uid', urlUid).eq('project_code', urlCode)
+                    await updateQuery.eq('uid', urlUid).eq('project_code', urlCode)
                 } else if (urlUid) {
-                    // Method 3: Fallback update by UID (most recent in_progress)
-                    await query.eq('uid', urlUid).order('created_at', { ascending: false }).limit(1)
+                    await updateQuery.eq('uid', urlUid).order('created_at', { ascending: false }).limit(1)
+                }
+
+                // 2. Fetch the record (whether we updated it or it was already done) to get metrics
+                let fetchQuery = db.from('responses')
+                    .select('start_time, completion_time, updated_at, ip')
+                
+                if (clickid) {
+                    fetchQuery = fetchQuery.eq('oi_session', clickid)
+                } else if (urlUid && urlCode) {
+                    fetchQuery = fetchQuery.eq('uid', urlUid).eq('project_code', urlCode)
+                } else if (urlUid) {
+                    fetchQuery = fetchQuery.eq('uid', urlUid).order('created_at', { ascending: false }).limit(1)
+                }
+
+                const { data: record } = await fetchQuery.maybeSingle()
+                
+                if (record && record.start_time) {
+                    const start = new Date(record.start_time).getTime()
+                    const end = new Date(record.completion_time || record.updated_at || new Date()).getTime()
+                    const diffMin = Math.floor((end - start) / 60000)
+                    if (diffMin >= 0) dbLoi = diffMin
+                }
+                if (record && record.ip) {
+                    dbIp = record.ip
                 }
             }
         } catch (e) {
-            console.error('[Status Page] Failed to persist status update:', e)
+            console.error('[Status Page] Failed to sync status/metrics:', e)
         }
     }
 
@@ -85,6 +113,9 @@ async function StatusContent({ searchParams }: { searchParams: Promise<{ [key: s
         <WavyOutcomeView 
             status={statusLabel}
             statusKeyword={keyword}
+            session={clickid || undefined}
+            ip={dbIp || ip}
+            loi={dbLoi}
         />
     )
 }
