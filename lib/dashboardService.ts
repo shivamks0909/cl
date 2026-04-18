@@ -1,12 +1,12 @@
-import { createAdminClient } from './insforge-server'
+import { createAdminClient } from './supabase-server'
 
-const baseUrl = process.env.NEXT_PUBLIC_INSFORGE_URL
-const apiKey = process.env.INSFORGE_API_KEY || process.env.NEXT_PUBLIC_ANON_KEY
+const baseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
+const apiKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
 
-// Determine if we should use local fallback (no InsForge configured)
+// Determine if we should use local fallback (no Supabase configured)
 function getUseLocal() {
-    const baseUrl = process.env.NEXT_PUBLIC_INSFORGE_URL || process.env.NEXT_PUBLIC_APP_URL
-    const apiKey = process.env.INSFORGE_API_KEY || process.env.NEXT_PUBLIC_ANON_KEY 
+    const baseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.NEXT_PUBLIC_APP_URL
+    const apiKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY 
     return !baseUrl || !apiKey
 }
 
@@ -27,9 +27,9 @@ export const dashboardService = {
             const local = await getLocalService()
             return await local.getProjectAnalytics(clientId)
         }
-        const insforge = await createAdminClient()
-        if (!insforge) return []
-        const { data, error } = await insforge.database.rpc('get_project_analytics')
+        const supabase = await createAdminClient()
+        if (!supabase) return []
+        const { data, error } = await supabase.rpc('get_project_analytics', {})
         if (error) return []
         return data as any[]
     },
@@ -39,9 +39,9 @@ export const dashboardService = {
             const local = await getLocalService()
             return await local.getClients()
         }
-        const insforge = await createAdminClient()
-        if (!insforge) return []
-        const { data, error } = await insforge.database.from('clients').select('*').order('created_at', { ascending: false })
+        const supabase = await createAdminClient()
+        if (!supabase) return []
+        const { data, error } = await supabase.from('clients').select('*').order('created_at', { ascending: false })
         if (error) return []
         return data as any[]
     },
@@ -51,9 +51,9 @@ export const dashboardService = {
             const local = await getLocalService()
             return await local.createClient(name)
         }
-        const insforge = await createAdminClient()
-        if (!insforge) return { data: null, error: { message: 'InsForge not configured' } }
-        const { data, error } = await insforge.database
+        const supabase = await createAdminClient()
+        if (!supabase) return { data: null, error: { message: 'Supabase not configured' } }
+        const { data, error } = await supabase
             .from('clients')
             .insert([{ name }])
             .select()
@@ -66,9 +66,9 @@ export const dashboardService = {
             const local = await getLocalService()
             return await local.deleteClient(id)
         }
-        const insforge = await createAdminClient()
-        if (!insforge) return { error: { message: 'InsForge not configured' } }
-        const { error } = await insforge.database
+        const supabase = await createAdminClient()
+        if (!supabase) return { error: { message: 'Supabase not configured' } }
+        const { error } = await supabase
             .from('clients')
             .delete()
             .eq('id', id)
@@ -80,9 +80,9 @@ export const dashboardService = {
             const local = await getLocalService()
             return await local.getProjects()
         }
-        const insforge = await createAdminClient()
-        if (!insforge) return []
-        const { data, error } = await insforge.database
+        const supabase = await createAdminClient()
+        if (!supabase) return []
+        const { data, error } = await supabase
             .from('projects')
             .select(`
                 *,
@@ -110,9 +110,9 @@ export const dashboardService = {
             const local = await getLocalService()
             return await local.createProject(project)
         }
-        const insforge = await createAdminClient()
-        if (!insforge) return { data: null, error: { message: 'InsForge not configured' } }
-        const { data, error } = await insforge.database
+        const supabase = await createAdminClient()
+        if (!supabase) return { data: null, error: { message: 'Supabase not configured' } }
+        const { data, error } = await supabase
             .from('projects')
             .insert([{ ...project, status: 'active' }])
             .select()
@@ -125,9 +125,9 @@ export const dashboardService = {
             const local = await getLocalService()
             return await local.updateProjectStatus(id, status)
         }
-        const insforge = await createAdminClient()
-        if (!insforge) return { error: { message: 'InsForge not configured' } }
-        const { error } = await insforge.database
+        const supabase = await createAdminClient()
+        if (!supabase) return { error: { message: 'Supabase not configured' } }
+        const { error } = await supabase
             .from('projects')
             .update({ status })
             .eq('id', id)
@@ -139,9 +139,9 @@ export const dashboardService = {
             const local = await getLocalService()
             return await local.deleteProject(id)
         }
-        const insforge = await createAdminClient()
-        if (!insforge) return { error: { message: 'InsForge not configured' } }
-        const { error } = await insforge.database
+        const supabase = await createAdminClient()
+        if (!supabase) return { error: { message: 'Supabase not configured' } }
+        const { error } = await supabase
             .from('projects')
             .update({
                 deleted_at: new Date().toISOString()
@@ -155,19 +155,33 @@ export const dashboardService = {
             const local = await getLocalService()
             return await local.getKPIs()
         }
-        const insforge = await createAdminClient()
-        if (!insforge) {
+        const supabase = await createAdminClient()
+        if (!supabase) {
             return {
                 total_projects: 0, active_projects: 0, total_clicks_today: 0, clicks_today: 0,
-                total_responses: 0, total_completes_today: 0, completes_today: 0, terminates_today: 0,
-                quotafull_today: 0, in_progress_today: 0, duplicates_today: 0, security_terminates_today: 0
+                direct_clicks_today: 0, supplier_clicks_today: 0,
+                total_responses: 0, total_completes_today: 0, completes_today: 0, 
+                direct_completes_today: 0, supplier_completes_today: 0,
+                total_terminates_today: 0, terminates_today: 0, direct_terminates_today: 0, supplier_terminates_today: 0,
+                total_quota_full_today: 0, quotafull_today: 0, direct_quota_full_today: 0, supplier_quota_full_today: 0,
+                total_in_progress_today: 0, in_progress_today: 0, direct_in_progress_today: 0, supplier_in_progress_today: 0,
+                total_duplicates_today: 0, duplicates_today: 0, direct_duplicates_today: 0, supplier_duplicates_today: 0,
+                total_security_terminates_today: 0, security_terminates_today: 0, direct_security_terminates_today: 0, supplier_security_terminates_today: 0,
+                total_click_fraud_today: 0, click_fraud_today: 0, direct_click_fraud_today: 0, supplier_click_fraud_today: 0
             }
         }
-        const { data, error } = await insforge.database.rpc('get_kpis')
+        const { data, error } = await supabase.rpc('get_kpis', {})
         if (error) return {
             total_projects: 0, active_projects: 0, total_clicks_today: 0, clicks_today: 0,
-            total_responses: 0, total_completes_today: 0, completes_today: 0, terminates_today: 0,
-            quotafull_today: 0, in_progress_today: 0, duplicates_today: 0, security_terminates_today: 0
+            direct_clicks_today: 0, supplier_clicks_today: 0,
+            total_responses: 0, total_completes_today: 0, completes_today: 0, 
+            direct_completes_today: 0, supplier_completes_today: 0,
+            total_terminates_today: 0, terminates_today: 0, direct_terminates_today: 0, supplier_terminates_today: 0,
+            total_quota_full_today: 0, quotafull_today: 0, direct_quota_full_today: 0, supplier_quota_full_today: 0,
+            total_in_progress_today: 0, in_progress_today: 0, direct_in_progress_today: 0, supplier_in_progress_today: 0,
+            total_duplicates_today: 0, duplicates_today: 0, direct_duplicates_today: 0, supplier_duplicates_today: 0,
+            total_security_terminates_today: 0, security_terminates_today: 0, direct_security_terminates_today: 0, supplier_security_terminates_today: 0,
+            total_click_fraud_today: 0, click_fraud_today: 0, direct_click_fraud_today: 0, supplier_click_fraud_today: 0
         }
         return data as any
     },
@@ -177,9 +191,9 @@ export const dashboardService = {
             const local = await getLocalService()
             return await local.getProjectHealthMetrics()
         }
-        const insforge = await createAdminClient()
-        if (!insforge) return []
-        const { data, error } = await insforge.database.rpc('get_project_health_metrics')
+        const supabase = await createAdminClient()
+        if (!supabase) return []
+        const { data, error } = await supabase.rpc('get_project_health_metrics', {})
         if (error) return []
         return (data as any[]).map((m: any) => ({
             ...m,
@@ -200,9 +214,9 @@ export const dashboardService = {
             const local = await getLocalService()
             return await local.getProjectById(id)
         }
-        const insforge = await createAdminClient()
-        if (!insforge) return null
-        const { data, error } = await insforge.database.from('projects').select('*').eq('id', id).maybeSingle()
+        const supabase = await createAdminClient()
+        if (!supabase) return null
+        const { data, error } = await supabase.from('projects').select('*').eq('id', id).maybeSingle()
         if (error || !data) return null
         return {
             ...data,
@@ -215,9 +229,9 @@ export const dashboardService = {
             const local = await getLocalService()
             return await local.updateProject(id, project)
         }
-        const insforge = await createAdminClient()
-        if (!insforge) return { error: { message: 'InsForge not configured' } }
-        const { error } = await insforge.database.from('projects').update(project).eq('id', id)
+        const supabase = await createAdminClient()
+        if (!supabase) return { error: { message: 'Supabase not configured' } }
+        const { error } = await supabase.from('projects').update(project).eq('id', id)
         return { error }
     },
 
@@ -226,9 +240,9 @@ export const dashboardService = {
             const local = await getLocalService()
             return await local.getResponses(filters)
         }
-        const insforge = await createAdminClient()
-        if (!insforge) return []
-        let query = insforge.database.from('responses').select('*, projects(project_code, project_name)')
+        const supabase = await createAdminClient()
+        if (!supabase) return []
+        let query = supabase.from('responses').select('*, projects(project_code, project_name)')
         
         if (filters?.ip) query = query.ilike('ip', `%${filters.ip}%`)
         if (filters?.status && filters.status !== 'all') query = query.eq('status', filters.status)
@@ -251,9 +265,9 @@ export const dashboardService = {
             // Local fallback doesn't have createResponse, but we don't usually create manually there
             return { data: null, error: { message: 'Not implemented locally' } }
         }
-        const insforge = await createAdminClient()
-        if (!insforge) return { data: null, error: { message: 'InsForge not configured' } }
-        const { data, error } = await insforge.database
+        const supabase = await createAdminClient()
+        if (!supabase) return { data: null, error: { message: 'Supabase not configured' } }
+        const { data, error } = await supabase
             .from('responses')
             .insert([response])
             .select()
@@ -265,9 +279,9 @@ export const dashboardService = {
         if (getUseLocal()) {
             return { error: { message: 'Not implemented locally' } }
         }
-        const insforge = await createAdminClient()
-        if (!insforge) return { error: { message: 'InsForge not configured' } }
-        const { error } = await insforge.database
+        const supabase = await createAdminClient()
+        if (!supabase) return { error: { message: 'Supabase not configured' } }
+        const { error } = await supabase
             .from('responses')
             .update(updates)
             .eq('id', id)
@@ -278,9 +292,9 @@ export const dashboardService = {
         if (getUseLocal()) {
             return { error: { message: 'Not implemented locally' } }
         }
-        const insforge = await createAdminClient()
-        if (!insforge) return { error: { message: 'InsForge not configured' } }
-        const { error } = await insforge.database
+        const supabase = await createAdminClient()
+        if (!supabase) return { error: { message: 'Supabase not configured' } }
+        const { error } = await supabase
             .from('responses')
             .delete()
             .eq('id', id)
@@ -292,9 +306,9 @@ export const dashboardService = {
             const local = await getLocalService()
             return await local.flushResponses()
         }
-        const insforge = await createAdminClient()
-        if (!insforge) return { error: { message: 'InsForge not configured' } }
-        const { error } = await insforge.database
+        const supabase = await createAdminClient()
+        if (!supabase) return { error: { message: 'Supabase not configured' } }
+        const { error } = await supabase
             .from('responses')
             .delete()
             .neq('id', '00000000-0000-0000-0000-000000000000')
@@ -306,9 +320,9 @@ export const dashboardService = {
             const local = await getLocalService()
             return await local.getSuppliers()
         }
-        const insforge = await createAdminClient()
-        if (!insforge) return []
-        const { data, error } = await insforge.database.from('suppliers').select('*').order('created_at', { ascending: false })
+        const supabase = await createAdminClient()
+        if (!supabase) return []
+        const { data, error } = await supabase.from('suppliers').select('*').order('created_at', { ascending: false })
         if (error) return []
         return data as any[]
     },
@@ -318,9 +332,9 @@ export const dashboardService = {
             const local = await getLocalService()
             return await local.getSupplierByToken(token)
         }
-        const insforge = await createAdminClient()
-        if (!insforge) return null
-        const { data } = await insforge.database.from('suppliers').select('*').eq('supplier_token', token).eq('status', 'active').maybeSingle()
+        const supabase = await createAdminClient()
+        if (!supabase) return null
+        const { data } = await supabase.from('suppliers').select('*').eq('supplier_token', token).eq('status', 'active').maybeSingle()
         return data as any || null
     },
 
@@ -329,9 +343,9 @@ export const dashboardService = {
             const local = await getLocalService()
             return await local.createSupplier(supplier)
         }
-        const insforge = await createAdminClient()
-        if (!insforge) return { data: null, error: { message: 'InsForge not configured' } }
-        const { data, error } = await insforge.database.from('suppliers').insert([supplier]).select().single()
+        const supabase = await createAdminClient()
+        if (!supabase) return { data: null, error: { message: 'Supabase not configured' } }
+        const { data, error } = await supabase.from('suppliers').insert([supplier]).select().single()
         return { data, error }
     },
 
@@ -340,9 +354,9 @@ export const dashboardService = {
             const local = await getLocalService()
             return await local.updateSupplier(id, supplier)
         }
-        const insforge = await createAdminClient()
-        if (!insforge) return { error: { message: 'InsForge not configured' } }
-        const { error } = await insforge.database.from('suppliers').update(supplier).eq('id', id)
+        const supabase = await createAdminClient()
+        if (!supabase) return { error: { message: 'Supabase not configured' } }
+        const { error } = await supabase.from('suppliers').update(supplier).eq('id', id)
         return { error }
     },
 
@@ -351,23 +365,23 @@ export const dashboardService = {
             const local = await getLocalService()
             return await local.deleteSupplier(id)
         }
-        const insforge = await createAdminClient()
-        if (!insforge) return { error: { message: 'InsForge not configured' } }
+        const supabase = await createAdminClient()
+        if (!supabase) return { error: { message: 'Supabase not configured' } }
 
         // 1. Remove project links first to avoid FK constraint errors
-        const { error: unlinkError } = await insforge.database.from('supplier_project_links').delete().eq('supplier_id', id)
+        const { error: unlinkError } = await supabase.from('supplier_project_links').delete().eq('supplier_id', id)
         if (unlinkError) {
             console.error('[deleteSupplier] Unlink Error:', unlinkError)
         }
 
         // 2. Perform deletion of the supplier
-        const { error } = await insforge.database.from('suppliers').delete().eq('id', id)
+        const { error } = await supabase.from('suppliers').delete().eq('id', id)
 
         if (error) {
             console.error('[deleteSupplier] Error:', error)
             // If it's a constraint violation, fallback to pausing the supplier
             if (error.code === '23503') {
-                const { error: fallbackError } = await insforge.database
+                const { error: fallbackError } = await supabase
                     .from('suppliers')
                     .update({ status: 'paused' })
                     .eq('id', id)
@@ -385,9 +399,9 @@ export const dashboardService = {
             const local = await getLocalService()
             return await local.getSupplierProjectLinks(projectId)
         }
-        const insforge = await createAdminClient()
-        if (!insforge) return []
-        const { data, error } = await insforge.database
+        const supabase = await createAdminClient()
+        if (!supabase) return []
+        const { data, error } = await supabase
             .from('supplier_project_links')
             .select('*, supplier:suppliers(*)')
             .eq('project_id', projectId)
@@ -400,9 +414,9 @@ export const dashboardService = {
             const local = await getLocalService()
             return await local.linkSupplierToProject(supplierId, projectId, quotaAllocated)
         }
-        const insforge = await createAdminClient()
-        if (!insforge) return { error: { message: 'InsForge not configured' } }
-        const { error } = await insforge.database.from('supplier_project_links')
+        const supabase = await createAdminClient()
+        if (!supabase) return { error: { message: 'Supabase not configured' } }
+        const { error } = await supabase.from('supplier_project_links')
             .upsert([{ supplier_id: supplierId, project_id: projectId, quota_allocated: quotaAllocated, status: 'active' }],
                 { onConflict: 'supplier_id,project_id' })
         return { error }
@@ -413,9 +427,9 @@ export const dashboardService = {
             const local = await getLocalService()
             return await local.unlinkSupplierFromProject(supplierId, projectId)
         }
-        const insforge = await createAdminClient()
-        if (!insforge) return { error: { message: 'InsForge not configured' } }
-        const { error } = await insforge.database.from('supplier_project_links')
+        const supabase = await createAdminClient()
+        if (!supabase) return { error: { message: 'Supabase not configured' } }
+        const { error } = await supabase.from('supplier_project_links')
             .delete().eq('supplier_id', supplierId).eq('project_id', projectId)
         return { error }
     }

@@ -1,7 +1,7 @@
 import { NextRequest } from "next/server";
-import { createAdminClient } from "./insforge-server";
+import { createAdminClient } from "./supabase-server";
 import { getClientIp } from "./getClientIp";
-import { Response } from "./types";
+import { Response, SupplierProjectLink } from "./types";
 
 export async function getLandingDataByClickId(clickid: string): Promise<Response | null> {
     const db = await createAdminClient()
@@ -20,9 +20,9 @@ export async function getLandingDataByClickId(clickid: string): Promise<Response
  * Simple redirect-based status updater.
  * Finds the exact record by clickid (or latest in_progress/started record for a given uid).
  * Safety rules:
- *   1. Never inserts a new row
+ *   1. Never inserts a new row (unless TEST MODE enabled for localhost)
  *   2. Never overwrites a status that is already finalized
- *   3. Returns null if no record found
+ *   3. Returns null if no record found (unless TEST MODE)
  */
 export async function updateResponseStatus(
     projectCode: string,
@@ -30,8 +30,9 @@ export async function updateResponseStatus(
     newStatus: string,
     clickid?: string | null,
     lastLandingPage?: string | null,
-    ipAddress?: string | null
-): Promise<{ id: string; status: string; uid: string; ip: string; supplier_uid?: string; project_code?: string; client_uid_sent?: string; hash_identifier?: string; clickid?: string } | null> {
+    ipAddress?: string | null,
+    strictMode: boolean = true
+): Promise<{ id: string; status: string; uid: string; ip: string; supplier_uid?: string; project_id?: string; project_code?: string; client_uid_sent?: string; hash_identifier?: string; clickid?: string } | null> {
     const db = await createAdminClient()
     if (!db) return null
 
@@ -43,7 +44,6 @@ export async function updateResponseStatus(
             .from('responses')
             .select('id, status, uid, ip, project_code, start_time, supplier_uid, client_uid_sent, hash_identifier')
             .eq('oi_session', clickid)
-            .in('status', ['in_progress', 'started', 'click'])
             .maybeSingle()
         existing = bySession
     }
@@ -55,58 +55,96 @@ export async function updateResponseStatus(
             .from('responses')
             .select('id, status, uid, ip, project_code, start_time, supplier_uid, client_uid_sent, hash_identifier')
             .ilike('clickid', cleanCid)
-            .in('status', ['in_progress', 'started', 'click'])
             .maybeSingle()
         existing = data
     }
 
-    // Fallback: Try with project_code + uid
-    if (!existing && projectCode) {
-        const cleanUid = userUid.trim()
-        const { data } = await db.database
-            .from('responses')
-            .select('id, status, uid, ip, project_code, start_time, supplier_uid, client_uid_sent, hash_identifier')
-            .or(`uid.ilike.${cleanUid},client_uid_sent.ilike.${cleanUid},client_pid.ilike.${cleanUid}`)
-            .eq('project_code', projectCode)
-            .in('status', ['in_progress', 'started', 'click'])
-            .order('created_at', { ascending: false })
-            .limit(1)
-            .maybeSingle()
-        existing = data
+    // STRATEGIES BELOW ARE ONLY FOR NON-STRICT MODE (Fallback lookups)
+    if (!existing && !strictMode) {
+        // Fallback: Try with project_code + uid
+        if (projectCode) {
+            const cleanUid = userUid.trim()
+            const { data } = await db.database
+                .from('responses')
+                .select('id, status, uid, ip, project_code, start_time, supplier_uid, client_uid_sent, hash_identifier')
+                .or(`uid.ilike.${cleanUid},client_uid_sent.ilike.${cleanUid},client_pid.ilike.${cleanUid}`)
+                .eq('project_code', projectCode)
+                .order('created_at', { ascending: false })
+                .limit(1)
+                .maybeSingle()
+            existing = data
+        }
+
+        // NEW FALLBACK: Try with client_pid + uid
+        if (!existing && projectCode) {
+            const cleanUid = userUid.trim()
+            const { data } = await db.database
+                .from('responses')
+                .select('id, status, uid, ip, project_code, start_time, supplier_uid, client_uid_sent, hash_identifier')
+                .or(`uid.ilike.${cleanUid},client_uid_sent.ilike.${cleanUid},client_pid.ilike.${cleanUid}`)
+                .eq('client_pid', projectCode)
+                .order('created_at', { ascending: false })
+                .limit(1)
+                .maybeSingle()
+            existing = data
+        }
+
+        // Fallback: try uid-only
+        if (!existing) {
+            const cleanUid = userUid.trim()
+            const { data } = await db.database
+                .from('responses')
+                .select('id, status, uid, ip, project_code, start_time, supplier_uid, client_uid_sent, hash_identifier')
+                .or(`uid.ilike.${cleanUid},client_uid_sent.ilike.${cleanUid},client_pid.ilike.${cleanUid}`)
+                .order('created_at', { ascending: false })
+                .limit(1)
+                .maybeSingle()
+            existing = data
+        }
     }
 
-    // NEW FALLBACK: Try with client_pid + uid
-    if (!existing && projectCode) {
-        const cleanUid = userUid.trim()
-        const { data } = await db.database
-            .from('responses')
-            .select('id, status, uid, ip, project_code, start_time, supplier_uid, client_uid_sent, hash_identifier')
-            .or(`uid.ilike.${cleanUid},client_uid_sent.ilike.${cleanUid},client_pid.ilike.${cleanUid}`)
-            .eq('client_pid', projectCode)
-            .in('status', ['in_progress', 'started', 'click'])
-            .order('created_at', { ascending: false })
-            .limit(1)
-            .maybeSingle()
-        existing = data
+    // If record found, check if it is already terminal
+    const terminalStatuses = ['complete', 'terminate', 'quota', 'security_terminate', 'duplicate_ip', 'duplicate_string', 'terminated', 'quota_full']
+    if (existing && terminalStatuses.includes(existing.status)) {
+        console.log(`[updateResponseStatus] Record ${existing.id} already terminal (${existing.status}). Skipping update.`)
+        return existing
     }
 
-    // Fallback: try uid-only
+    // SECURITY WITH TEST MODE: Allow localhost or ALLOW_TEST_MODE env to create entries
+    // But ONLY if not in strictMode
     if (!existing) {
-        const cleanUid = userUid.trim()
-        const { data } = await db.database
-            .from('responses')
-            .select('id, status, uid, ip, project_code, start_time, supplier_uid, client_uid_sent, hash_identifier')
-            .or(`uid.ilike.${cleanUid},client_uid_sent.ilike.${cleanUid},client_pid.ilike.${cleanUid}`)
-            .in('status', ['in_progress', 'started'])
-            .order('created_at', { ascending: false })
-            .limit(1)
-            .maybeSingle()
-        existing = data
-    }
-
-    if (!existing) {
-        console.warn(`[updateResponseStatus] No record found for pid=${projectCode}, uid=${userUid}, clickid=${clickid}`);
-        return null;
+        const clientIp = ipAddress || 'unknown'
+        const isLocalhost = clientIp === '127.0.0.1' || clientIp === '::1' || clientIp.startsWith('192.168.') || clientIp.startsWith('10.')
+        const isTestMode = isLocalhost || process.env.ALLOW_TEST_MODE === 'true'
+        
+        if (isTestMode && !strictMode) {
+            console.log(`[updateResponseStatus] TEST MODE: Creating for ${projectCode}/${userUid}`)
+            try {
+                let projectId = null
+                const { data: projData } = await db.database.from('projects').select('id').eq('project_code', projectCode).maybeSingle()
+                if (projData) projectId = projData.id
+                
+                const testToken = clickid || 'test_' + Date.now()
+                const newResponse = await db.database.from('responses').insert({
+                    project_code: projectCode,
+                    project_id: projectId,
+                    uid: userUid,
+                    clickid: testToken,
+                    oi_session: testToken,
+                    status: newStatus,
+                    ip: clientIp,
+                    start_time: new Date().toISOString(),
+                    source: 'test'
+                }).select().single()
+                
+                if (newResponse.data) return newResponse.data
+            } catch (err: any) {
+                console.error('[updateResponseStatus] TEST error:', err.message)
+            }
+        }
+        
+        console.warn(`[updateResponseStatus] BLOCKED: No entry for ${projectCode}/${userUid} IP:${clientIp} strict:${strictMode}`)
+        return null
     }
 
     // Optional attributes to update
@@ -119,10 +157,9 @@ export async function updateResponseStatus(
     if (lastLandingPage) updatePayload.last_landing_page = lastLandingPage
     if (ipAddress) updatePayload.ip = ipAddress
 
-    const terminalStatuses = ['complete', 'terminate', 'quota', 'security_terminate', 'duplicate_ip', 'duplicate_string', 'terminated', 'quota_full']
     if (terminalStatuses.includes(newStatus)) {
         updatePayload.completion_time = now.toISOString()
-
+        
         if (existing.start_time) {
             const startTime = new Date(existing.start_time)
             const durationSeconds = Math.floor((now.getTime() - startTime.getTime()) / 1000)
@@ -179,9 +216,11 @@ export async function getLandingPageData(
         uid,
         clickid,
         ip,
+        source: null as string | null,
         response: null as any,
         project: null as any,
-        supplier: null as any
+        supplier: null as any,
+        link: null as SupplierProjectLink | null
     };
 
     const db = await createAdminClient()
@@ -207,6 +246,9 @@ export async function getLandingPageData(
             result.pid = resp.project_code || code
             result.uid = resp.uid || resp.user_uid || uid
             result.supplier = resp.suppliers
+            result.source = resp.source
+            
+            console.log(`[getLandingPageData] Response found: id=${resp.id}, source=${resp.source}, supplier_id=${resp.supplier_id}, supplier_token=${resp.supplier_token}`)
 
             // FALLBACK: If join failed but we have a token, fetch manually
             if (!result.supplier && resp.supplier_token) {
@@ -216,6 +258,7 @@ export async function getLandingPageData(
                     .eq('supplier_token', resp.supplier_token)
                     .maybeSingle()
                 result.supplier = s
+                console.log(`[getLandingPageData] Fallback supplier lookup: ${s?.name}`)
             }
         }
     }
@@ -234,6 +277,7 @@ export async function getLandingPageData(
             result.response = resp
             result.pid = resp.project_code || code
             result.supplier = resp.suppliers
+            result.source = resp.source
         }
     }
 
@@ -260,6 +304,18 @@ export async function getLandingPageData(
             .maybeSingle()
 
         if (proj) result.project = proj
+    }
+
+    // Fetch supplier-project link for link-level custom redirects
+    if (result.supplier?.id && result.project?.id) {
+        const { data: link } = await db.database
+            .from('supplier_project_links')
+            .select('*')
+            .eq('supplier_id', result.supplier.id)
+            .eq('project_id', result.project.id)
+            .maybeSingle()
+
+        if (link) result.link = link as SupplierProjectLink
     }
 
     return result;
