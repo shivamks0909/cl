@@ -49,8 +49,8 @@ export default async function CompletePage({ searchParams }: { searchParams: Pro
   }
 
   // Resolve Redirect
-  // Pass BOTH the masked UID and original UID. Resolver uses original if available, falling back to masked.
-  const passedUid = (data as any).originalUid || uid;
+  // Use UID from query param (original client_sent UID) for external redirects to preserve end-to-end UID
+  const passedUid = (params.uid as string) || uid;
 
   const resolution = RedirectResolver.resolve(
     'complete',

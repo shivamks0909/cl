@@ -106,7 +106,7 @@ export async function GET(request: NextRequest) {
           DUPLICATE:           `/status?code=${code}&uid=${uid}&type=duplicate_string`,
           GEO_MISMATCH:        `/paused?title=GEO_MISMATCH`,
           COUNTRY_UNAVAILABLE: `/paused?title=COUNTRY+UNAVAILABLE`,
-          QUOTA_FULL:          `/status?code=${code}&uid=${uid}&type=quota`,
+          QUOTA_FULL:          `/quotafull?code=${code}&uid=${uid}&type=quota`,
           SERVER_ERROR:        `/paused?title=SERVER_ERROR`
         }
 

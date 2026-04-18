@@ -23,18 +23,46 @@ export async function GET(
   // Parse slug to extract supplierToken and incomingUid
   let supplierToken: string | null = null
   let incomingUid: string = 'N/A'
+  let source: 'direct' | 'supplier' = 'direct'
 
-  if (slug.length < 2) {
-    // Require both supplier and UID in path
-    const uid = encodeURIComponent('missing')
-    return NextResponse.redirect(new URL(`/paused?title=INVALID_LINK&uid=${uid}`, request.url))
+  // CRITICAL FIX: Validate supplier token in BOTH formats
+  // Format 1: /r/{code}/{supplier}/{uid} (works ✓)
+  // Format 2: /r/{code}/{supplier}?uid={uid} (NEW - now supported)
+  if (slug.length >= 1) {
+    const potentialSupplierToken = slug[0]
+    const { database: db } = await getUnifiedDb()
+    if (db) {
+      const { data: supplierCheck } = await db
+        .from('suppliers')
+        .select('id, supplier_token')
+        .eq('supplier_token', potentialSupplierToken)
+        .eq('status', 'active')
+        .maybeSingle()
+      
+      if (supplierCheck) {
+        // This IS a valid supplier token
+        supplierToken = potentialSupplierToken
+        // Get UID from slug[1] OR query params
+        incomingUid = slug[1] || searchParams.get('uid') || searchParams.get('id') || 'N/A'
+        source = 'supplier'
+        console.log(`[Routing /r] Validated supplier token from slug[0]: ${supplierToken}, uid from: ${slug[1] ? 'slug[1]' : 'query'}`)
+      } else {
+        // Not a valid supplier, treat as direct flow
+        source = 'direct'
+        incomingUid = slug[0] || searchParams.get('uid') || searchParams.get('id') || 'N/A'
+      }
+    } else {
+      source = 'direct'
+      incomingUid = slug[0] || searchParams.get('uid') || searchParams.get('id') || 'N/A'
+    }
+  } else {
+    // Direct Flow: /r/{code}?uid=XYZ
+    source = 'direct'
+    incomingUid = slug[0] || searchParams.get('uid') || searchParams.get('id') || 'N/A'
   }
 
-  supplierToken = slug[0]
-  incomingUid = slug[1]
-
-  // Validate UID is not placeholder or empty
-  if (!incomingUid || incomingUid === 'N/A' || incomingUid.trim() === '') {
+  // Validate UID is not placeholder or empty for supplier flow
+  if (source === 'supplier' && (!incomingUid || incomingUid === 'N/A' || incomingUid.trim() === '')) {
     const uid = encodeURIComponent(incomingUid || 'missing')
     return NextResponse.redirect(new URL(`/paused?title=INVALID_LINK&uid=${uid}`, request.url))
   }
@@ -89,6 +117,7 @@ export async function GET(
       userAgent,
       ip,
       geoData,
+      source,
       queryParams: Object.fromEntries(searchParams.entries())
     }
 
@@ -103,6 +132,13 @@ export async function GET(
         response.cookies.set('last_sid', result.responseData.oi_session, cookieOptions)
       }
       response.cookies.set('last_pid', projectCode, cookieOptions)
+      
+      // CRITICAL: Persist supplier context for redirect resolution at completion
+      if (source === 'supplier' && result.responseData?.supplier_id) {
+        response.cookies.set('last_supplier', result.responseData.supplier_id, cookieOptions)
+        console.log(`[Routing /r] Set supplier cookie: ${result.responseData.supplier_id}`)
+      }
+      
       return response
     }
 
@@ -115,7 +151,7 @@ export async function GET(
       DUPLICATE:           `/status?code=${projectCode}&uid=${uid}&type=duplicate_string`,
       GEO_MISMATCH:        `/paused?title=GEO_MISMATCH&uid=${uid}`,
       COUNTRY_UNAVAILABLE: `/paused?title=COUNTRY+UNAVAILABLE&uid=${uid}`,
-      QUOTA_FULL:          `/status?code=${projectCode}&uid=${uid}&type=quota`,
+      QUOTA_FULL:          `/quotafull?code=${projectCode}&uid=${uid}&type=quota`,
       SERVER_ERROR:        `/paused?title=SERVER_ERROR&uid=${uid}`,
       UNAUTHORIZED:        `/paused?title=UNAUTHORIZED&uid=${uid}`
     }

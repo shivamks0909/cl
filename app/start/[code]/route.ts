@@ -6,6 +6,8 @@ import { auditService } from '@/lib/audit-service'
 
 export const dynamic = 'force-dynamic'
 export const runtime = 'nodejs'
+export const revalidate = 0
+export const fetchCache = 'force-no-store'
 
 /**
  * Legacy/Alternative Start Route
@@ -101,7 +103,7 @@ export async function GET(
           DUPLICATE:           `/status?code=${code}&uid=${uid}&type=duplicate_string`,
           GEO_MISMATCH:        `/paused?title=GEO_MISMATCH&uid=${uid}`,
           COUNTRY_UNAVAILABLE: `/paused?title=COUNTRY+UNAVAILABLE&uid=${uid}`,
-          QUOTA_FULL:          `/status?code=${code}&uid=${uid}&type=quota`,
+          QUOTA_FULL:          `/quotafull?code=${code}&uid=${uid}&type=quota`,
           SERVER_ERROR:        `/paused?title=SERVER_ERROR&uid=${uid}`
         }
 

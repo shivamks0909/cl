@@ -41,7 +41,8 @@ export default async function QuotaFullPage({ searchParams }: { searchParams: Pr
   }
 
   // Resolve Redirect
-  const passedUid = (data as any).originalUid || uid;
+  // Use UID from query param (original client_sent UID) for external redirects to preserve end-to-end UID
+  const passedUid = (params.uid as string) || uid;
 
   const resolution = RedirectResolver.resolve(
     'quota_full',
