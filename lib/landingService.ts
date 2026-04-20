@@ -281,10 +281,10 @@ export async function getLandingPageData(
         }
     }
 
-    // If supplier still missing, try to get from query params
+    // If supplier still missing, try to get from query params ONLY if we have no response record
+    // For redirect callbacks (where we have a response), trust the response's source/supplier, not the query param
     const sToken = (params.supplier as string);
-    if (!result.supplier && sToken) {
-        // Database is now live, always look there
+    if (!result.response && !result.supplier && sToken) {
         const { data: s } = await db.database
             .from('suppliers')
             .select('*')
