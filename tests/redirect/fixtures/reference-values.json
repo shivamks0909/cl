@@ -1,0 +1,21 @@
+{
+  "project": {
+    "code": "TEST_REDIRECT_PROJECT",
+    "name": "Redirect Test Project",
+    "pidPrefix": "TEST_PID_",
+    "pidCounterStart": 1,
+    "baseUrl": "https://survey.mackinsights.com?uid={uid}&pid={pid}"
+  },
+  "supplier": {
+    "token": "MACK",
+    "name": "MackInsights",
+    "redirects": {
+      "complete": "https://dashboard.mackinsights.com/redirect/complete?pid={pid}&uid=[uid]",
+      "terminate": "https://dashboard.mackinsights.com/redirect/terminate?pid={pid}&uid=[uid]",
+      "quotafull": "https://dashboard.mackinsights.com/redirect/quotafull?pid={pid}&uid=[uid]"
+    }
+  },
+  "testUser": {
+    "uid": "OPGHUS01"
+  }
+}
