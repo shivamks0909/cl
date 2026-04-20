@@ -8,7 +8,12 @@ const { Client } = require('pg')
 const fs = require('fs')
 const path = require('path')
 
-const DATABASE_URL = process.env.DATABASE_URL || 'postgresql://postgres:f6e75a96bb4301794302c738b94ab107@3gkhhr9f.us-east.database.insforge.app:5432/insforge?sslmode=require'
+const DATABASE_URL = process.env.DATABASE_URL;
+
+if (!DATABASE_URL) {
+    console.error('ERROR: DATABASE_URL environment variable is required');
+    process.exit(1);
+}
 
 async function runMigration() {
     const client = new Client({ connectionString: DATABASE_URL })
@@ -50,9 +55,13 @@ async function runMigration() {
         // Create admin user
         const bcrypt = require('bcryptjs')
         const { randomUUID } = require('crypto')
-        const adminEmail = 'admin@opinioninsights.com'
-        const adminPassword = 'admin123'
-        const hash = bcrypt.hashSync(adminPassword, 10)
+        const adminEmail = process.env.ADMIN_EMAIL || 'admin@opinioninsights.com'
+        const adminPassword = process.env.ADMIN_PASSWORD
+
+        if (!adminPassword) {
+            console.warn('⚠️  ADMIN_PASSWORD not set, skipping admin user creation')
+        } else {
+            const hash = bcrypt.hashSync(adminPassword, 10)
 
         // Try admins table first, then users
         try {
@@ -61,7 +70,7 @@ async function runMigration() {
                 VALUES ($1, $2, $3, NOW())
                 ON CONFLICT (email) DO UPDATE SET password_hash = EXCLUDED.password_hash
             `, [randomUUID(), adminEmail, hash])
-            console.log(`✅ Admin user ready: ${adminEmail} / ${adminPassword}`)
+            console.log(`✅ Admin user ready: ${adminEmail}`)
         } catch (e) {
             // Try users table
             try {
@@ -70,10 +79,11 @@ async function runMigration() {
                     VALUES ($1, $2, $3, 'admin', 'active', NOW())
                     ON CONFLICT (email) DO UPDATE SET password = EXCLUDED.password
                 `, [randomUUID(), adminEmail, hash])
-                console.log(`✅ Admin user ready: ${adminEmail} / ${adminPassword}`)
+                console.log(`✅ Admin user ready: ${adminEmail}`)
             } catch (e2) {
                 console.log('⚠️  Admin table not found — will be created on first login')
             }
+        }
         }
 
         console.log()

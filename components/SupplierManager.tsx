@@ -56,7 +56,6 @@ export default function SupplierManager({ suppliers: init, projects }: Props) {
     const [expandedId, setExpandedId] = useState<string | null>(null)
     const [linkModal, setLinkModal] = useState<Supplier | null>(null)
     const [linkProjId, setLinkProjId] = useState('')
-    const [linkQuota, setLinkQuota] = useState(0)
     const [linking, setLinking] = useState(false)
     const [base, setBase] = useState('https://track.opinioninsights.in')
 
@@ -116,13 +115,13 @@ export default function SupplierManager({ suppliers: init, projects }: Props) {
         if (expandedId === id) setExpandedId(null)
     }
 
-    const openLink = (s: Supplier) => { setLinkModal(s); setLinkProjId(''); setLinkQuota(0) }
-    const closeLink = () => { setLinkModal(null); setLinkProjId(''); setLinkQuota(0) }
+    const openLink = (s: Supplier) => { setLinkModal(s); setLinkProjId('') }
+    const closeLink = () => { setLinkModal(null); setLinkProjId('') }
 
     const handleLink = async () => {
         if (!linkModal || !linkProjId) return
         setLinking(true)
-        const { error } = await linkSupplierToProjectAction(linkModal.id, linkProjId, linkQuota)
+        const { error } = await linkSupplierToProjectAction(linkModal.id, linkProjId)
         setLinking(false)
         if (error) { alert(error.message); return }
         closeLink(); router.refresh()
@@ -394,11 +393,6 @@ export default function SupplierManager({ suppliers: init, projects }: Props) {
                                     <option key={p.id} value={p.id}>{p.project_code} — {p.project_name || p.client_name}</option>
                                 ))}
                             </select>
-                        </div>
-                        <div className="space-y-1">
-                            <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Quota (0 = unlimited)</label>
-                            <input type="number" value={linkQuota} min={0} onChange={e => setLinkQuota(parseInt(e.target.value) || 0)}
-                                className="w-full px-4 py-3 border border-slate-200 rounded-xl text-sm font-mono text-slate-700 outline-none focus:border-violet-400" />
                         </div>
                         {linkProjId && (() => {
                             const proj = projects.find(p => p.id === linkProjId)

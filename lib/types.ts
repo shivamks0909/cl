@@ -11,13 +11,16 @@ export type Supplier = {
     notes?: string | null
     status: 'active' | 'paused'
     created_at: string
+    // Redirect resolver properties
+    uid_param_name?: string | null   // e.g. "uid" - the parameter name for respondent ID
+    pid_param_name?: string | null   // e.g. "pid" - the parameter name for project ID
+    respondent_id_aliases?: string[] | null  // alternative param names for respondent ID
 }
 
 export type SupplierProjectLink = {
     id: string
     supplier_id: string
     project_id: string
-    quota_allocated: number
     status: 'active' | 'paused'
     created_at: string
 }
@@ -86,6 +89,7 @@ export type Response = {
     uid: string
     user_uid?: string
     supplier_uid?: string
+    supplier_id?: string
     client_uid_sent?: string
     hash_identifier?: string
     session_token?: string

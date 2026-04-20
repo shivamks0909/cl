@@ -182,54 +182,42 @@ BEGIN
         SELECT id INTO supp_luc FROM suppliers WHERE supplier_token = 'LUC01' LIMIT 1;
         SELECT id INTO supp_cin FROM suppliers WHERE supplier_token = 'CIN01' LIMIT 1;
 
-        -- DYN01 -> TEST_SINGLE (unlimited)
+        -- DYN01 -> TEST_SINGLE (unlimited - no quota tracking)
         INSERT INTO supplier_project_links (
             id,
             supplier_id,
             project_id,
-            quota_allocated,
-            quota_used,
             status
         ) VALUES (
             uuid_generate_v4(),
             supp_dyn,
             proj_single,
-            0, -- unlimited
-            0,
             'active'
         ) ON CONFLICT (supplier_id, project_id) DO NOTHING;
 
-        -- LUC01 -> TEST_MULTI (quota 50)
+        -- LUC01 -> TEST_MULTI (no quota tracking)
         INSERT INTO supplier_project_links (
             id,
             supplier_id,
             project_id,
-            quota_allocated,
-            quota_used,
             status
         ) VALUES (
             uuid_generate_v4(),
             supp_luc,
             proj_multi,
-            50,
-            0,
             'active'
         ) ON CONFLICT (supplier_id, project_id) DO NOTHING;
 
-        -- CIN01 -> TEST_SINGLE (quota 100)
+        -- CIN01 -> TEST_SINGLE (no quota tracking)
         INSERT INTO supplier_project_links (
             id,
             supplier_id,
             project_id,
-            quota_allocated,
-            quota_used,
             status
         ) VALUES (
             uuid_generate_v4(),
             supp_cin,
             proj_single,
-            100,
-            0,
             'active'
         ) ON CONFLICT (supplier_id, project_id) DO NOTHING;
     END;
@@ -263,8 +251,6 @@ SELECT
     'SUPPLIER_LINKS' as table_name,
     s.supplier_token,
     p.project_code,
-    sl.quota_allocated,
-    sl.quota_used,
     sl.status
 FROM supplier_project_links sl
 JOIN suppliers s ON sl.supplier_id = s.id

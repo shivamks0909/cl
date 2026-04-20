@@ -75,7 +75,13 @@ async function createMockProject() {
         console.log('Creating S2S Configuration directly via pg...')
         const secretKey = crypto.randomBytes(32).toString('hex')
         const { Client } = require('pg')
-        const connectionString = process.env.DATABASE_URL || 'postgresql://postgres:f6e75a96bb4301794302c738b94ab107@3gkhhr9f.us-east.database.insforge.app:5432/insforge?sslmode=require'
+        const connectionString = process.env.DATABASE_URL
+
+        if (!connectionString) {
+            console.error('ERROR: DATABASE_URL environment variable is required')
+            process.exit(1)
+        }
+
         const pgClient = new Client({ connectionString })
         await pgClient.connect()
         await pgClient.query(`

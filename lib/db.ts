@@ -81,6 +81,7 @@ function initializeSchema(db: Database.Database) {
       uid TEXT,
       user_uid TEXT,
       supplier_uid TEXT,
+      supplier_id TEXT,
       client_uid_sent TEXT,
       hash_identifier TEXT,
       session_token TEXT,
@@ -99,7 +100,8 @@ function initializeSchema(db: Database.Database) {
       client_pid TEXT,
       created_at TEXT NOT NULL DEFAULT (datetime('now')),
       updated_at TEXT,
-      FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE SET NULL
+      FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE SET NULL,
+      FOREIGN KEY (supplier_id) REFERENCES suppliers(id) ON DELETE SET NULL
     )
   `)
 
@@ -148,6 +150,9 @@ function initializeSchema(db: Database.Database) {
   }
   if (!columnNames.includes('supplier_uid')) {
     missingColumns.push('supplier_uid TEXT')
+  }
+  if (!columnNames.includes('supplier_id')) {
+    missingColumns.push('supplier_id TEXT')
   }
   if (!columnNames.includes('client_uid_sent')) {
     missingColumns.push('client_uid_sent TEXT')
@@ -229,17 +234,16 @@ function initializeSchema(db: Database.Database) {
     CREATE INDEX IF NOT EXISTS idx_responses_throttle ON responses(ip, project_id, created_at);
     CREATE INDEX IF NOT EXISTS idx_responses_duplicate_uid ON responses(uid, project_id);
     CREATE INDEX IF NOT EXISTS idx_responses_supplier_uid ON responses(supplier_uid);
+    CREATE INDEX IF NOT EXISTS idx_responses_supplier_id ON responses(supplier_id);
     CREATE INDEX IF NOT EXISTS idx_supplier_project_links_active ON supplier_project_links(supplier_id, project_id, status);
   `)
 
-  // Supplier project links table (for quota tracking)
+  // Supplier project links table (direct supplier-project association without quota tracking)
   db.exec(`
     CREATE TABLE IF NOT EXISTS supplier_project_links (
       id TEXT PRIMARY KEY,
       supplier_id TEXT NOT NULL,
       project_id TEXT NOT NULL,
-      quota_allocated INTEGER DEFAULT 0,
-      quota_used INTEGER DEFAULT 0,
       status TEXT NOT NULL DEFAULT 'active' CHECK (status IN ('active', 'paused')),
       created_at TEXT NOT NULL DEFAULT (datetime('now')),
       UNIQUE(supplier_id, project_id),
@@ -253,13 +257,6 @@ function initializeSchema(db: Database.Database) {
     CREATE INDEX IF NOT EXISTS idx_supplier_project_links_supplier ON supplier_project_links(supplier_id);
     CREATE INDEX IF NOT EXISTS idx_supplier_project_links_project ON supplier_project_links(project_id);
   `)
-
-  // Check and add quota_used column if not exists
-  const linkColumns = db.pragma('table_info(supplier_project_links)')
-  const linkColumnNames = (linkColumns as any[]).map(col => col.name)
-  if (!linkColumnNames.includes('quota_used')) {
-    db.exec(`ALTER TABLE supplier_project_links ADD COLUMN quota_used INTEGER DEFAULT 0`)
-  }
 
   // ============================================
   // S2S CONFIG TABLE (for fraud protection)

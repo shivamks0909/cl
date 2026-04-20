@@ -34,9 +34,9 @@ export async function deleteSupplierAction(id: string): Promise<{ error: any }> 
     }
 }
 
-export async function linkSupplierToProjectAction(supplierId: string, projectId: string, quota = 0): Promise<{ error: any }> {
+export async function linkSupplierToProjectAction(supplierId: string, projectId: string): Promise<{ error: any }> {
     try {
-        const result = await dashboardService.linkSupplierToProject(supplierId, projectId, quota)
+        const result = await dashboardService.linkSupplierToProject(supplierId, projectId)
         revalidatePath(`/admin/projects/${projectId}`)
         return result
     } catch (error) {

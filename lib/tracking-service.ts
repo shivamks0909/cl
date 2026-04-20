@@ -4,7 +4,7 @@ import * as crypto from 'crypto'
 
 export type TrackingResult = {
   success: boolean
-  errorType?: 'PROJECT_NOT_FOUND' | 'PROJECT_PAUSED' | 'THROTTLED' | 'DUPLICATE' | 'GEO_MISMATCH' | 'QUOTA_FULL' | 'UNAUTHORIZED' | 'SERVER_ERROR' | 'COUNTRY_UNAVAILABLE'
+  errorType?: 'PROJECT_NOT_FOUND' | 'PROJECT_PAUSED' | 'THROTTLED' | 'DUPLICATE' | 'GEO_MISMATCH' | 'UNAUTHORIZED' | 'SERVER_ERROR' | 'COUNTRY_UNAVAILABLE' | 'QUOTA_FULL'
   errorMessage?: string
   error?: string // Legacy alias
   redirectUrl?: string
@@ -20,6 +20,7 @@ export type EntryContext = {
   ip: string
   geoData?: any
   queryParams: Record<string, string>
+  source?: string
 }
 
 export class TrackingService {
@@ -135,6 +136,7 @@ export class TrackingService {
 
       // 6. Supplier Identification
       let supplierId: string | null = null
+      let supplierName: string | null = null
       if (ctx.supplierToken) {
         const { data: supplier } = await db
           .from('suppliers')
@@ -145,6 +147,37 @@ export class TrackingService {
 
         if (supplier) {
           supplierId = supplier.id
+          supplierName = supplier.name
+        }
+      }
+
+      // 6.1 Supplier Quota Check (if supplier flow)
+      if (supplierId && ctx.supplierToken) {
+        const { data: link } = await db
+          .from('supplier_project_links')
+          .select('id, quota_allocated, quota_used')
+          .eq('supplier_id', supplierId)
+          .eq('project_id', project.id)
+          .eq('status', 'active')
+          .maybeSingle()
+
+        if (link) {
+          // Check quota: -1 = unlimited, 0 = blocked, positive = limit
+          if (link.quota_allocated > 0 && link.quota_used >= link.quota_allocated) {
+            await auditService.log({
+              event_type: 'QUOTA_EXCEEDED',
+              payload: { 
+                project_id: project.id,
+                supplier_id: supplierId,
+                supplier_token: ctx.supplierToken,
+                quota_used: link.quota_used,
+                quota_allocated: link.quota_allocated
+              },
+              ip: ctx.ip,
+              user_agent: ctx.userAgent
+            })
+            return { success: false, errorType: 'QUOTA_FULL', errorMessage: 'Supplier quota exhausted', error: 'Quota full' }
+          }
         }
       }
 
@@ -189,28 +222,6 @@ export class TrackingService {
         clientPid
       )
 
-      // 9. Atomic Quota Increment
-      let quotaOk = true
-      if (ctx.supplierToken && supplierId) {
-        try {
-          const { data: incrementSuccess, error: quotaError } = await db.rpc('increment_quota', {
-            p_project_id: project.id,
-            p_supplier_id: supplierId
-          })
-
-          if (quotaError || incrementSuccess === false) {
-            quotaOk = false
-          }
-        } catch (err) {
-          console.error('[TrackingService] Quota check failed:', err)
-          quotaOk = false
-        }
-      }
-
-      if (!quotaOk) {
-        return { success: false, errorType: 'QUOTA_FULL', errorMessage: 'Quota exceeded for this supplier.', error: 'Quota full' }
-      }
-
       // 10. Create Response Record
        const { data: response, error: rError } = await db
          .from('responses')
@@ -227,6 +238,11 @@ export class TrackingService {
            user_agent: ctx.userAgent,
            device_type: deviceType,
            supplier_uid: ctx.supplierToken,
+           supplier_id: supplierId || null,
+           supplier_token: ctx.supplierToken || null,
+           supplier_name: supplierName || null,
+           supplier: ctx.supplierToken || null,
+           source: ctx.supplierToken ? 'supplier' : 'direct',
            created_at: new Date().toISOString()
          }])
          .select()
@@ -234,7 +250,33 @@ export class TrackingService {
 
       if (rError) throw rError
 
-      // 11. Audit Log 
+       // 10.1 Increment supplier quota (if supplier flow)
+       if (supplierId && ctx.supplierToken && response?.id) {
+         try {
+           // Get current quota_used
+           const { data: linkData } = await db
+             .from('supplier_project_links')
+             .select('quota_used')
+             .eq('supplier_id', supplierId)
+             .eq('project_id', project.id)
+             .eq('status', 'active')
+             .maybeSingle();
+
+           if (linkData) {
+             await db
+               .from('supplier_project_links')
+               .update({ quota_used: (linkData.quota_used || 0) + 1 })
+               .eq('supplier_id', supplierId)
+               .eq('project_id', project.id)
+               .eq('status', 'active');
+             console.log('[Quota] Incremented quota for supplier ' + ctx.supplierToken + ' on project ' + project.project_code);
+           }
+         } catch (e: any) {
+           console.error('[Quota] Failed to increment:', e.message);
+         }
+       }
+
+       // 11. Audit Log       // 11. Audit Log 
       await auditService.log({
         event_type: 'ROUTING_ENTRY',
         payload: { 

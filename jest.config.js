@@ -8,11 +8,22 @@ module.exports = {
     '^@/(.*)$': '<rootDir>/$1',
   },
   transform: {
-    '^.+\\.tsx?$': 'ts-jest',
+    '^.+\\\\.tsx?$': 'ts-jest',
   },
   globals: {
     'ts-jest': {
       tsconfig: 'tsconfig.json',
     },
   },
+  collectCoverage: true,
+  coverageDirectory: './coverage',
+  coverageReporters: ['lcov', 'text', 'html'],
+  coverageThreshold: {
+    branches: 90,
+    functions: 90,
+    lines: 90,
+    statements: 90,
+  },
+  testTimeout: 30000,
+  setupFilesAfterEnv: ['<rootDir>/jest.setup.js'],
 }

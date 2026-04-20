@@ -65,7 +65,8 @@ export async function GET(
             userAgent,
             ip,
             geoData,
-            queryParams: Object.fromEntries(request.nextUrl.searchParams.entries())
+            queryParams: Object.fromEntries(request.nextUrl.searchParams.entries()),
+            source: 'direct'
         }
 
         const result = await TrackingService.processEntry(ctx)

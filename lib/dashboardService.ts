@@ -409,15 +409,15 @@ export const dashboardService = {
         return data as any[]
     },
 
-    async linkSupplierToProject(supplierId: string, projectId: string, quotaAllocated = 0) {
+    async linkSupplierToProject(supplierId: string, projectId: string) {
         if (getUseLocal()) {
             const local = await getLocalService()
-            return await local.linkSupplierToProject(supplierId, projectId, quotaAllocated)
+            return await local.linkSupplierToProject(supplierId, projectId)
         }
         const supabase = await createAdminClient()
         if (!supabase) return { error: { message: 'Supabase not configured' } }
         const { error } = await supabase.from('supplier_project_links')
-            .upsert([{ supplier_id: supplierId, project_id: projectId, quota_allocated: quotaAllocated, status: 'active' }],
+            .upsert([{ supplier_id: supplierId, project_id: projectId, status: 'active' }],
                 { onConflict: 'supplier_id,project_id' })
         return { error }
     },

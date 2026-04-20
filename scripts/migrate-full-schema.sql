@@ -101,7 +101,7 @@ CREATE INDEX IF NOT EXISTS idx_suppliers_status ON suppliers(status);
 CREATE INDEX IF NOT EXISTS idx_suppliers_platform ON suppliers(platform_type);
 
 -- =====================================================
--- 4. SUPPLIER_PROJECT_LINKS (Assignment + Quota)
+-- 4. SUPPLIER_PROJECT_LINKS (Supplier-Project Assignment)
 -- =====================================================
 -- Junction table: which supplier can send traffic to which project
 CREATE TABLE IF NOT EXISTS supplier_project_links (
@@ -110,17 +110,15 @@ CREATE TABLE IF NOT EXISTS supplier_project_links (
     supplier_id UUID NOT NULL REFERENCES suppliers(id) ON DELETE CASCADE,
     project_id UUID NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
 
-    -- Quota management
-    quota_allocated INTEGER DEFAULT 0, -- 0 = unlimited
-    quota_used INTEGER DEFAULT 0,
+    -- Custom landing page URL (optional override)
+    custom_landing_page_url TEXT,
 
     -- Link configuration
     status TEXT NOT NULL DEFAULT 'active' CHECK (status IN ('active', 'paused', 'archived')),
 
-    -- Optional: override supplier's default redirect URLs
-    custom_complete_url TEXT,
-    custom_terminate_url TEXT,
-    custom_quotafull_url TEXT,
+    -- Quota management
+    quota_allocated INTEGER DEFAULT -1,
+    quota_used INTEGER DEFAULT 0,
 
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     updated_at TIMESTAMPTZ,
@@ -128,10 +126,10 @@ CREATE TABLE IF NOT EXISTS supplier_project_links (
     UNIQUE(supplier_id, project_id)
 );
 
--- Critical indexes for quota checking performance
+-- Critical indexes for performance
 CREATE INDEX IF NOT EXISTS idx_supplier_project_links_supplier ON supplier_project_links(supplier_id, status);
 CREATE INDEX IF NOT EXISTS idx_supplier_project_links_project ON supplier_project_links(project_id, status);
-CREATE INDEX IF NOT EXISTS idx_supplier_project_links_quota ON supplier_project_links(supplier_id, project_id, status, quota_allocated, quota_used);
+CREATE INDEX IF NOT EXISTS idx_supplier_project_links_quota ON supplier_project_links(supplier_id, project_id, status, quota_allocated, quota_used) WHERE status = 'active';
 
 -- =====================================================
 -- 5. RESPONSES (Core Tracking Table)

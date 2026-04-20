@@ -154,7 +154,7 @@ export async function GET(request: NextRequest) {
         console.log(`[Callback] DB Lookup Strategy A: oi_session = "${cid}"`)
         let { data: response, error: lookupError } = await db
             .from('responses')
-            .select('id, status, clickid, project_code, project_id, uid, oi_session')
+            .select('id, status, clickid, project_code, project_id, uid, oi_session, supplier_uid')
             .eq('oi_session', cid)
             .maybeSingle()
 
@@ -163,7 +163,7 @@ export async function GET(request: NextRequest) {
             console.log(`[Callback] DB Lookup Strategy B: clickid = "${cid}", project_code = "${pid}"`)
             const { data: fallbackResponse } = await db
                 .from('responses')
-                .select('id, status, clickid, project_code, project_id, uid, oi_session')
+                .select('id, status, clickid, project_code, project_id, uid, oi_session, supplier_uid')
                 .eq('clickid', cid)
                 .ilike('project_code', pid)
                 .maybeSingle()
@@ -175,7 +175,7 @@ export async function GET(request: NextRequest) {
             console.log(`[Callback] DB Lookup Strategy C: uid = "${cid}", project_code = "${pid}"`)
             const { data: legacyResponse } = await db
                 .from('responses')
-                .select('id, status, clickid, project_code, project_id, uid, oi_session')
+                .select('id, status, clickid, project_code, project_id, uid, oi_session, supplier_uid')
                 .eq('uid', cid)
                 .ilike('project_code', pid)
                 .maybeSingle()
@@ -187,7 +187,7 @@ export async function GET(request: NextRequest) {
             console.log(`[Callback] DB Lookup Strategy D: oi_session = "${cid}" (no project filter)`)
             const { data: broadResponse } = await db
                 .from('responses')
-                .select('id, status, clickid, project_code, project_id, uid, oi_session')
+                .select('id, status, clickid, project_code, project_id, uid, oi_session, supplier_uid')
                 .eq('oi_session', cid)
                 .maybeSingle()
             response = broadResponse

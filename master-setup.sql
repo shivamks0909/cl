@@ -79,8 +79,7 @@ CREATE TABLE IF NOT EXISTS supplier_project_links (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     supplier_id UUID NOT NULL REFERENCES suppliers(id) ON DELETE CASCADE,
     project_id UUID NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
-    quota_allocated INTEGER DEFAULT 0,
-    quota_used INTEGER DEFAULT 0,
+    custom_landing_page_url TEXT,
     status TEXT NOT NULL DEFAULT 'active',
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     UNIQUE(supplier_id, project_id)
@@ -191,24 +190,3 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
--- Quota increment function
-CREATE OR REPLACE FUNCTION increment_quota(
-    p_project_id UUID,
-    p_supplier_id UUID
-)
-RETURNS BOOLEAN AS $$
-DECLARE
-    v_rows_updated INTEGER;
-BEGIN
-    UPDATE supplier_project_links
-    SET quota_used = quota_used + 1
-    WHERE project_id = p_project_id
-      AND supplier_id = p_supplier_id
-      AND status = 'active'
-      AND quota_used < quota_allocated;
-
-    GET DIAGNOSTICS v_rows_updated = ROW_COUNT;
-
-    RETURN v_rows_updated > 0;
-END;
-$$ LANGUAGE plpgsql;

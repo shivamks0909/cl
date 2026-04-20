@@ -55,7 +55,7 @@ CREATE TABLE IF NOT EXISTS responses (
   supplier_name TEXT,
   supplier TEXT,
   status VARCHAR(50) NOT NULL DEFAULT 'in_progress' CHECK (status IN (
-    'in_progress', 'complete', 'terminate', 'quota_full', 
+    'in_progress', 'complete', 'terminate', 'quota_full',
     'security_terminate', 'duplicate_ip', 'duplicate_string'
   )),
   ip INET,
@@ -91,36 +91,17 @@ CREATE TABLE IF NOT EXISTS supplier_project_links (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
   supplier_id UUID NOT NULL REFERENCES suppliers(id) ON DELETE CASCADE,
   project_id UUID NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
-  quota_allocated INTEGER DEFAULT 0,
+  custom_landing_page_url TEXT,
+  status VARCHAR(20) NOT NULL DEFAULT 'active' CHECK (status IN ('active', 'paused', 'archived')),
+  quota_allocated INTEGER DEFAULT -1,
   quota_used INTEGER DEFAULT 0,
-  status VARCHAR(20) NOT NULL DEFAULT 'active' CHECK (status IN ('active', 'paused')),
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMPTZ,
   UNIQUE(supplier_id, project_id)
 );
 
 CREATE INDEX IF NOT EXISTS idx_supplier_project_links_active ON supplier_project_links(supplier_id, project_id, status);
-
--- Atomic quota increment RPC function
-CREATE OR REPLACE FUNCTION increment_quota(
-    p_project_id UUID,
-    p_supplier_id UUID
-)
-RETURNS BOOLEAN AS $$
-DECLARE
-    v_rows_updated INTEGER;
-BEGIN
-    UPDATE supplier_project_links
-    SET quota_used = quota_used + 1
-    WHERE project_id = p_project_id
-      AND supplier_id = p_supplier_id
-      AND status = 'active'
-      AND quota_used < quota_allocated;
-
-    GET DIAGNOSTICS v_rows_updated = ROW_COUNT;
-
-    RETURN v_rows_updated > 0;
-END;
-$$ LANGUAGE plpgsql;
+CREATE INDEX IF NOT EXISTS idx_supplier_project_links_quota ON supplier_project_links(supplier_id, project_id, status, quota_allocated, quota_used) WHERE status = 'active';
 
 INSERT INTO projects (id, project_code, project_name, base_url, source, status, created_at)
 VALUES (

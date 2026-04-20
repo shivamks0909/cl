@@ -5,7 +5,12 @@
 const { Client } = require('pg')
 const bcrypt = require('bcryptjs')
 
-const DATABASE_URL = process.env.DATABASE_URL || 'postgresql://postgres:f6e75a96bb4301794302c738b94ab107@3gkhhr9f.us-east.database.insforge.app:5432/insforge?sslmode=require'
+const DATABASE_URL = process.env.DATABASE_URL
+
+if (!DATABASE_URL) {
+    console.error('ERROR: DATABASE_URL environment variable is required')
+    process.exit(1)
+}
 
 async function setup() {
     const client = new Client({ connectionString: DATABASE_URL })
@@ -24,14 +29,22 @@ async function setup() {
     console.log('Created admins table')
 
     // Insert admin user
-    const hash = bcrypt.hashSync('admin123', 10)
+    const adminEmail = process.env.ADMIN_EMAIL || 'admin@opinioninsights.com'
+    const adminPassword = process.env.ADMIN_PASSWORD
+
+    if (!adminPassword) {
+        console.error('ERROR: ADMIN_PASSWORD environment variable is required')
+        process.exit(1)
+    }
+
+    const hash = bcrypt.hashSync(adminPassword, 10)
     await client.query(
         `INSERT INTO admins (email, password_hash)
          VALUES ($1, $2)
          ON CONFLICT (email) DO UPDATE SET password_hash = EXCLUDED.password_hash`,
-        ['admin@opinioninsights.com', hash]
+        [adminEmail, hash]
     )
-    console.log('Admin user ready: admin@opinioninsights.com / admin123')
+    console.log(`Admin user ready: ${adminEmail} / ${adminPassword}`)
 
     // List all tables
     const result = await client.query(

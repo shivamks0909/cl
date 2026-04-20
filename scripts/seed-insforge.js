@@ -1,7 +1,12 @@
 require('dotenv').config({ path: '.env.local' });
 const { Client } = require('pg');
 
-const DATABASE_URL = process.env.DATABASE_URL || 'postgresql://postgres:f6e75a96bb4301794302c738b94ab107@3gkhhr9f.us-east.database.insforge.app:5432/insforge?sslmode=require';
+const DATABASE_URL = process.env.DATABASE_URL;
+
+if (!DATABASE_URL) {
+    console.error('ERROR: DATABASE_URL environment variable is required');
+    process.exit(1);
+}
 
 // Helper to generate UUIDs
 const { randomUUID } = require('crypto');

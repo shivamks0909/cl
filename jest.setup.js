@@ -1,26 +1,26 @@
-// Jest setup file for Next.js middleware testing
-// This file runs before each test suite
+// Jest setup file - runs before all tests
+import { beforeAll, afterAll } from '@jest/globals';
+import * as path from 'path';
+import * as fs from 'fs';
 
-// Mock Next.js specific globals if needed
-globalThis.next = globalThis.next || {}
-
-// Suppress console warnings during tests
-const originalWarn = console.warn
-const originalError = console.error
+// Ensure test data directory exists
+const testDbPath = path.join(__dirname, '..', 'data', 'test_validation.db');
+const dataDir = path.dirname(testDbPath);
 
 beforeAll(() => {
-  console.warn = (...args) => {
-    // Uncomment to see warnings during tests
-    // originalWarn(...args)
+  if (!fs.existsSync(dataDir)) {
+    fs.mkdirSync(dataDir, { recursive: true });
   }
-  
-  console.error = (...args) => {
-    // Uncomment to see errors during tests
-    // originalError(...args)
-  }
-})
+  // Set test environment
+  process.env.NODE_ENV = 'test';
+  process.env.NEXT_PUBLIC_INSFORGE_URL = '';
+  process.env.SUPABASE_SERVICE_ROLE_KEY = '';
+  process.env.NEXTAUTH_SECRET = 'test-secret-only';
+});
 
 afterAll(() => {
-  console.warn = originalWarn
-  console.error = originalError
-})
+  // Cleanup test database
+  if (fs.existsSync(testDbPath)) {
+    fs.unlinkSync(testDbPath);
+  }
+});

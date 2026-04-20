@@ -88,7 +88,38 @@
       "Bash(/d/new12-main/data/db-connection-status.txt:*)",
       "Bash(NEXT_PUBLIC_INSFORGE_URL= INSFORGE_API_KEY= NEXT_PUBLIC_ANON_KEY= node scripts/test-db-connection.js)",
       "Bash(npm test:*)",
-      "Bash(claude:*)"
+      "Bash(claude:*)",
+      "mcp__supabase__list_tables",
+      "mcp__supabase__execute_sql",
+      "mcp__supabase__generate_typescript_types",
+      "Bash(xgrep -l \"increment_quota\")",
+      "Skill(update-config)",
+      "Bash(lsof -ti:3001 -ti:3000)",
+      "Bash(xargs -r kill -9)",
+      "Bash(ps -p 7096 -o pid,comm)",
+      "Bash(tasklist //FI \"PID eq 7096\")",
+      "Bash(timeout 60 bash -c 'until curl -s -o /dev/null -w \"%%{http_code}\" http://localhost:3000 | grep -q 200; do sleep 2; done')",
+      "WebSearch",
+      "Bash(PORT=3001 next dev *)",
+      "Bash(awk '{print $2}')",
+      "Bash(xargs kill *)",
+      "Bash(lsof -ti:3001)",
+      "Bash(findstr :3001)",
+      "mcp__supabase__apply_migration",
+      "Bash(awk '{print $5}')",
+      "Bash(xargs -I {} taskkill //F //PID {})",
+      "Bash(rm -rf claude-skills-repos)",
+      "Bash(mkdir -p claude-skills-repos)",
+      "Bash(lsof -ti:3000)",
+      "Bash(NEXT_PUBLIC_SUPABASE_URL=https://qvgrzxuonxhwnxitnfvk.supabase.co NEXT_PUBLIC_SUPABASE_ANON_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InF2Z3J6eHVvbnhod254aXRuZnZrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzYzNjkzOTUsImV4cCI6MjA5MTk0NTM5NX0.staDuV_QCJuDsO39p4ErzB7sJmCBb4ukGxBuDAAuhNg node *)",
+      "Bash(command -v vercel)",
+      "Bash(awk -F: '{sum+=$2} END {print sum}')",
+      "Bash(cmd * iss tarah ki koi bhi command ke liye auto run kr lena yaad rahe mai available nhi hu)",
+      "Bash(tee baseline-test-run.log)"
     ]
-  }
+  },
+  "enableAllProjectMcpServers": true,
+  "enabledMcpjsonServers": [
+    "supabase"
+  ]
 }

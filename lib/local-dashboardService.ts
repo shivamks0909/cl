@@ -426,14 +426,14 @@ export const dashboardService = {
         }
     },
 
-    async linkSupplierToProject(supplierId: string, projectId: string, quotaAllocated = 0): Promise<{ error: any }> {
+    async linkSupplierToProject(supplierId: string, projectId: string): Promise<{ error: any }> {
         const db = getDb()
         try {
             const id = `link_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
             db.prepare(`
-                INSERT INTO supplier_project_links (id, supplier_id, project_id, quota_allocated, quota_used, status, created_at)
-                VALUES (?, ?, ?, ?, ?, ?, ?)
-            `).run(id, supplierId, projectId, quotaAllocated, 0, 'active', new Date().toISOString())
+                INSERT INTO supplier_project_links (id, supplier_id, project_id, status, created_at)
+                VALUES (?, ?, ?, ?, ?)
+            `).run(id, supplierId, projectId, 'active', new Date().toISOString())
             return { error: null }
         } catch (error: any) {
             return { error: { message: error.message } }

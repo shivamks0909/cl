@@ -3,7 +3,6 @@ import { redirect } from "next/navigation";
 import { updateResponseStatus, getLandingPageData } from "@/lib/landingService";
 import { getClientIp } from "@/lib/getClientIp";
 import { RedirectResolver } from "@/lib/redirect-resolver";
-import { incrementSupplierQuota } from "@/lib/tracking-resolver";
 import { NextRequest } from "next/server";
 import { auditService } from "@/lib/audit-service";
 import { WavyOutcomeView } from "@/components/public/WavyOutcomeView";
@@ -116,12 +115,6 @@ export default async function RedirectCallbackPage({
   }
 
   console.log(`[Redirect Callback] Successfully updated response ${updateResult.id} to ${dbStatus}`);
-  
-  // Increment supplier quota if applicable
-  if (data.supplier && data.project && data.project.id && data.supplier.id && dbStatus === 'complete') {
-    await incrementSupplierQuota(data.project.id, data.supplier.id);
-    console.log(`[Redirect Callback] Incremented supplier quota for supplier ${data.supplier.id}`);
-  }
 
   // Resolve Redirect based on project/supplier configuration
   const passedUid = (data as any).originalUid || uid;
