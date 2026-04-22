@@ -1,0 +1,21 @@
+[
+  {"id": "1", "text": "Create Redirect Test Directory Structure", "status": "completed"},
+  {"id": "2", "text": "Create Test Data Fixtures (SQL)", "status": "completed"},
+  {"id": "3", "text": "Create Jest Setup for Redirect Tests", "status": "completed"},
+  {"id": "4", "text": "Create Database Validator Utility", "status": "pending"},
+  {"id": "5", "text": "Create Test Helper Utility", "status": "pending"},
+  {"id": "6", "text": "Create Performance Monitor Utility", "status": "pending"},
+  {"id": "7", "text": "Create Exec SQL Migration (Prerequisite for Test Helper)", "status": "pending"},
+  {"id": "8", "text": "Create API Test - Direct Entry", "status": "pending"},
+  {"id": "9", "text": "Create API Test - Direct Complete", "status": "pending"},
+  {"id": "10", "text": "Create Remaining API Tests", "status": "pending"},
+  {"id": "11", "text": "Create E2E Tests with Playwright", "status": "pending"},
+  {"id": "12", "text": "Create Exec SQL RPC Function in Database", "status": "pending"},
+  {"id": "13", "text": "Update package.json Scripts", "status": "pending"},
+  {"id": "14", "text": "Create Fixture Loader Script", "status": "pending"},
+  {"id": "15", "text": "Create Fixture Unloader Script", "status": "pending"},
+  {"id": "16", "text": "Create GitHub Actions Workflow", "status": "pending"},
+  {"id": "17", "text": "Create README for Redirect Tests", "status": "pending"},
+  {"id": "18", "text": "Verify Full Test Suite Works End-to-End", "status": "pending"},
+  {"id": "19", "text": "Integrate Redirect Jest Setup into Configuration", "status": "pending"}
+]

@@ -25,9 +25,9 @@ export async function GET(
   let incomingUid: string = 'N/A'
   let source: 'direct' | 'supplier' = 'direct'
 
-  // CRITICAL FIX: Validate supplier token in BOTH formats
   // Format 1: /r/{code}/{supplier}/{uid} (works ✓)
   // Format 2: /r/{code}/{supplier}?uid={uid} (NEW - now supported)
+  // Format 3: /r/{code}?supplier={token}&uid={uid} (NEW - now supported)
   if (slug.length >= 1) {
     const potentialSupplierToken = slug[0]
     const { database: db } = await getUnifiedDb()
@@ -56,9 +56,28 @@ export async function GET(
       incomingUid = slug[0] || searchParams.get('uid') || searchParams.get('id') || 'N/A'
     }
   } else {
-    // Direct Flow: /r/{code}?uid=XYZ
-    source = 'direct'
-    incomingUid = slug[0] || searchParams.get('uid') || searchParams.get('id') || 'N/A'
+    // Check if supplier token is in query params
+    const querySupplier = searchParams.get('supplier') || searchParams.get('vendor')
+    if (querySupplier) {
+      const { database: db } = await getUnifiedDb()
+      if (db) {
+        const { data: supplierCheck } = await db
+          .from('suppliers')
+          .select('id, supplier_token')
+          .eq('supplier_token', querySupplier)
+          .eq('status', 'active')
+          .maybeSingle()
+        
+        if (supplierCheck) {
+          supplierToken = querySupplier
+          source = 'supplier'
+        }
+      }
+    }
+    
+    // Direct Flow (or query-based supplier flow): /r/{code}?uid=XYZ
+    if (!supplierToken) source = 'direct'
+    incomingUid = searchParams.get('uid') || searchParams.get('id') || 'N/A'
   }
 
   // Validate UID is not placeholder or empty for supplier flow

@@ -60,3 +60,5 @@ build_new.log
 dev_server.log
 dev_server_local.log
 .worktrees/
+
+.vercel

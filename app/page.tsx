@@ -4,7 +4,7 @@ export default function Home() {
       <div className="max-w-4xl w-full bg-white rounded-lg shadow-xl p-8">
         <h1 className="text-4xl font-bold text-gray-800 mb-4">Survey Management System</h1>
         <p className="text-gray-600 mb-8">Local SQLite database for managing survey projects and responses</p>
-
+        
         <div className="grid md:grid-cols-2 gap-6 mb-8">
           <div className="border rounded-lg p-6 hover:shadow-lg transition col-span-2">
             <h2 className="text-xl font-semibold mb-2">📊 Analytics & Tracking</h2>
@@ -18,6 +18,31 @@ export default function Home() {
                 <li><a href="/admin/projects" className="text-blue-600 hover:underline">Project Management</a></li>
               </ul>
             </div>
+          </div>
+        </div>
+
+        {/* Mock Survey Testing Section */}
+        <div className="bg-gradient-to-r from-purple-50 to-pink-50 rounded-lg p-6 border-2 border-purple-200 mb-8">
+          <h3 className="font-semibold mb-2 text-purple-900 flex items-center">
+            <span className="text-2xl mr-2">🧪</span>
+            Mock Survey Testing
+          </h3>
+          <p className="text-sm text-gray-700 mb-4">
+            Test different survey outcomes: Complete, Terminate, or Quota Full scenarios
+          </p>
+          <div className="flex gap-4">
+            <a
+              href="/mock-select"
+              className="inline-block px-6 py-3 bg-gradient-to-r from-purple-600 to-pink-600 text-white rounded-lg hover:from-purple-700 hover:to-pink-700 transition font-bold shadow-lg hover:shadow-xl transform hover:scale-105"
+            >
+              🚀 Start Mock Survey Test →
+            </a>
+            <a
+              href="/test-suite"
+              className="inline-block px-6 py-3 bg-gradient-to-r from-green-600 to-emerald-600 text-white rounded-lg hover:from-green-700 hover:to-emerald-700 transition font-bold shadow-lg hover:shadow-xl transform hover:scale-105"
+            >
+              🧪 Full Test Suite →
+            </a>
           </div>
         </div>
 

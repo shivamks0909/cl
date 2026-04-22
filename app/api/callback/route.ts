@@ -66,7 +66,35 @@ export async function GET(request: NextRequest) {
     const searchParams = request.nextUrl.searchParams
     const pid = searchParams.get('pid') || searchParams.get('code')
     const cid = searchParams.get('cid') || searchParams.get('clickid') || searchParams.get('uid')
-    const type = searchParams.get('type') || searchParams.get('status')
+    let type = searchParams.get('type') || searchParams.get('status')
+
+    // If type still missing, try to infer from URL path (for vendor redirects)
+    if (!type) {
+        const path = request.nextUrl.pathname
+        const pathParts = path.split('/').filter(Boolean)
+
+        // Check for patterns like /redirect/complete, /redirect/terminate, /redirect/quota
+        const redirectIndex = pathParts.findIndex(part => part === 'redirect' || part === 'r')
+        if (redirectIndex !== -1 && redirectIndex + 1 < pathParts.length) {
+            const inferredType = pathParts[redirectIndex + 1]
+            if (['complete', 'terminate', 'quota', 'quota_full', 'quotafull', 'security_terminate'].includes(inferredType)) {
+                type = inferredType
+                console.log(`[Callback] Inferred type '${type}' from URL path: ${path}`)
+            }
+        }
+        // Fallback: check if path contains quota-related keywords
+        if (!type) {
+            const lowerPath = path.toLowerCase()
+            if (lowerPath.includes('quota') || lowerPath.includes('quotafull')) {
+                type = 'quota'
+                console.log(`[Callback] Inferred type 'quota' from path keyword: ${path}`)
+            } else if (lowerPath.includes('terminate')) {
+                type = 'terminate'
+                console.log(`[Callback] Inferred type 'terminate' from path keyword: ${path}`)
+            }
+        }
+    }
+
     const sig = searchParams.get('sig')
 
     // Debug logging: log received query parameters
@@ -165,7 +193,7 @@ export async function GET(request: NextRequest) {
                 .from('responses')
                 .select('id, status, clickid, project_code, project_id, uid, oi_session, supplier_uid')
                 .eq('clickid', cid)
-                .ilike('project_code', pid)
+                .ilike('project_code', pid || '')
                 .maybeSingle()
             response = fallbackResponse
         }
@@ -177,7 +205,7 @@ export async function GET(request: NextRequest) {
                 .from('responses')
                 .select('id, status, clickid, project_code, project_id, uid, oi_session, supplier_uid')
                 .eq('uid', cid)
-                .ilike('project_code', pid)
+                .ilike('project_code', pid || '')
                 .maybeSingle()
             response = legacyResponse
         }
@@ -215,6 +243,30 @@ export async function GET(request: NextRequest) {
             return NextResponse.redirect(
                 new URL(`/status?code=${encodeURIComponent(pid || 'UNKNOWN')}&uid=${encodeURIComponent(cid)}&cid=${encodeURIComponent(cid)}&type=${encodeURIComponent(type)}`, request.url)
             )
+        }
+
+        // STRICT SESSION VALIDATION: Ensure response belongs to this session token
+        // This prevents fake callbacks using only pid+uid
+        const sessionMatches = response.oi_session === cid || response.clickid === cid;
+        if (!sessionMatches) {
+            console.error(`[Callback] Session mismatch: response ${response.id} (pid=${pid}) has oi_session=${response.oi_session}, clickid=${response.clickid} but received cid=${cid}`);
+            await logCallback({
+                project_code: pid,
+                clickid: cid,
+                type,
+                status_mapped: internalStatus,
+                response_code: 403,
+                success: false,
+                error_message: 'Session token does not match response',
+                raw_query: rawQuery,
+                ip_address: ip,
+                user_agent: userAgent,
+                latency_ms: Date.now() - startTime
+            });
+            return NextResponse.json(
+                { success: false, error: 'Invalid session token' },
+                { status: 403 }
+            );
         }
 
         // 2. HMAC Signature Verification - OPTIONAL (only if S2S config exists)

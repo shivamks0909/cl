@@ -31,7 +31,7 @@ export class RedirectResolver {
         // 2. Priority Resolution
         let targetUrl: string | null = null;
         let isExternal = false;
-        
+
         const isSupplierFlow = source === 'supplier' || source === 'vendor' || !!s;
 
         // Priority 1: Link-level specific redirect (Only for supplier flow)
@@ -94,8 +94,11 @@ export class RedirectResolver {
     private static injectParams(url: string, uid: string, pid: string, supplier: Supplier | null, status?: string): string {
         let finalUrl = url;
         
-        // Internal placeholders
+        // Internal placeholders (order matters: longer patterns first to avoid partial replacement)
         const replacements: Record<string, string> = {
+            '{{uid}}': uid,
+            '{{pid}}': pid,
+            '{{status}}': status || '',
             '{uid}': uid,
             '{pid}': pid,
             '{status}': status || '',
@@ -103,9 +106,6 @@ export class RedirectResolver {
             '[PID]': pid,
             '[uid]': uid,
             '[pid]': pid,
-            '{{uid}}': uid,
-            '{{pid}}': pid,
-            '{{status}}': status || '',
         };
 
         Object.entries(replacements).forEach(([key, val]) => {

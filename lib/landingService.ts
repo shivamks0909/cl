@@ -18,11 +18,12 @@ export async function getLandingDataByClickId(clickid: string): Promise<Response
 
 /**
  * Simple redirect-based status updater.
- * Finds the exact record by clickid (or latest in_progress/started record for a given uid).
+ * Finds the exact record by oi_session or clickid only.
  * Safety rules:
- *   1. Never inserts a new row (unless TEST MODE enabled for localhost)
- *   2. Never overwrites a status that is already finalized
- *   3. Returns null if no record found (unless TEST MODE)
+ *   1. NEVER inserts a new row (unless TEST MODE enabled for localhost & strictMode=false)
+ *   2. NEVER overwrites a status that is already finalized
+ *   3. Returns null if no record found by session token (unless TEST MODE)
+ *   4. STRICT MODE: No fallback to pid+uid lookups - prevents fake callbacks
  */
 export async function updateResponseStatus(
     projectCode: string,
@@ -59,49 +60,7 @@ export async function updateResponseStatus(
         existing = data
     }
 
-    // STRATEGIES BELOW ARE ONLY FOR NON-STRICT MODE (Fallback lookups)
-    if (!existing && !strictMode) {
-        // Fallback: Try with project_code + uid
-        if (projectCode) {
-            const cleanUid = userUid.trim()
-            const { data } = await db.database
-                .from('responses')
-                .select('id, status, uid, ip, project_code, start_time, supplier_uid, client_uid_sent, hash_identifier')
-                .or(`uid.ilike.${cleanUid},client_uid_sent.ilike.${cleanUid},client_pid.ilike.${cleanUid}`)
-                .eq('project_code', projectCode)
-                .order('created_at', { ascending: false })
-                .limit(1)
-                .maybeSingle()
-            existing = data
-        }
 
-        // NEW FALLBACK: Try with client_pid + uid
-        if (!existing && projectCode) {
-            const cleanUid = userUid.trim()
-            const { data } = await db.database
-                .from('responses')
-                .select('id, status, uid, ip, project_code, start_time, supplier_uid, client_uid_sent, hash_identifier')
-                .or(`uid.ilike.${cleanUid},client_uid_sent.ilike.${cleanUid},client_pid.ilike.${cleanUid}`)
-                .eq('client_pid', projectCode)
-                .order('created_at', { ascending: false })
-                .limit(1)
-                .maybeSingle()
-            existing = data
-        }
-
-        // Fallback: try uid-only
-        if (!existing) {
-            const cleanUid = userUid.trim()
-            const { data } = await db.database
-                .from('responses')
-                .select('id, status, uid, ip, project_code, start_time, supplier_uid, client_uid_sent, hash_identifier')
-                .or(`uid.ilike.${cleanUid},client_uid_sent.ilike.${cleanUid},client_pid.ilike.${cleanUid}`)
-                .order('created_at', { ascending: false })
-                .limit(1)
-                .maybeSingle()
-            existing = data
-        }
-    }
 
     // If record found, check if it is already terminal
     const terminalStatuses = ['complete', 'terminate', 'quota', 'security_terminate', 'duplicate_ip', 'duplicate_string', 'terminated', 'quota_full']

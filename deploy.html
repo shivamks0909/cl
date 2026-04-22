@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html>
+<head><title>Deploy</title></head>
+<body>
+<div id="output">Running...</div>
+<script>
+async function run() {
+  const token = 'vcp_487DLv5w25Xi6Tflt7cevFhOlp9Q4nXNmphhEQxDFitC63CkVt4WshV3';
+  const projectId = 'prj_y5dZBtYBZtJEC24fg4u2h3MctcUX';
+  try {
+    const ghRes = await fetch('https://api.github.com/repos/shivamks0909/cl');
+    const ghData = await ghRes.json();
+    const repoId = ghData.id;
+    if (!repoId) throw new Error('No repo id');
+
+    const res = await fetch('https://api.vercel.com/v13/deployments', {
+      method: 'POST',
+      headers: {
+        'Authorization': 'Bearer ' + token,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        name: 'april',
+        project: projectId,
+        target: 'production',
+        gitSource: {
+          type: 'github',
+          repoId: repoId,
+          ref: 'main'
+        }
+      })
+    });
+    const data = await res.json();
+    document.getElementById('output').innerText = 'SUCCESS: ' + JSON.stringify(data);
+  } catch (err) {
+    document.getElementById('output').innerText = 'ERROR: ' + err.message;
+  }
+}
+run();
+</script>
+</body>
+</html>

@@ -37,11 +37,15 @@ export class TrackingService {
         .from('projects')
         .select('*')
         .eq('id', ctx.projectId)
-        .is('deleted_at', null)
+
         .maybeSingle()
 
       if (pError || !project) return { success: false, errorType: 'PROJECT_NOT_FOUND' }
       if (project.status !== 'active') return { success: false, errorType: 'PROJECT_PAUSED' }
+      // Soft-delete check (deleted_at should be null)
+      if ((project as any).deleted_at !== null && (project as any).deleted_at !== undefined) {
+        return { success: false, errorType: 'PROJECT_NOT_FOUND' }
+      }
 
       // 1.1 Normalized UID (Handle placeholder string from user)
       let validatedUid = (ctx.rid && ctx.rid.trim() !== '' && !ctx.rid.includes('[UID]') && !ctx.rid.includes('{uid}') && ctx.rid !== 'N/A')
@@ -189,6 +193,8 @@ export class TrackingService {
 
       // 7.1 PID Generation
       let clientPid: string | null = null
+      let generatedUidForClient: string = validatedUid // Default: use original UID
+
       if (project.pid_prefix) {
         const { data: updatedProject, error: pidError } = await db
           .from('projects')
@@ -203,6 +209,12 @@ export class TrackingService {
           const counter = updatedProject.pid_counter
           const countryPart = (ctx.queryParams.country || '').toUpperCase()
           clientPid = `${prefix}${countryPart}${String(counter).padStart(padding, '0')}`
+          
+          // FIXED: If force_pid_as_uid is enabled, use generated PID as UID for client
+          if (project.force_pid_as_uid === true) {
+            generatedUidForClient = clientPid
+            console.log(`[TrackingService] force_pid_as_uid ENABLED: Original UID=${validatedUid}, Client UID=${generatedUidForClient}`)
+          }
         }
       }
 
@@ -213,7 +225,7 @@ export class TrackingService {
       const redirectUrl = this.buildUrl(
         finalBaseUrl,
         sessionToken,
-        validatedUid,
+        generatedUidForClient, // Use generated UID for client when force_pid_as_uid is enabled
         hashId,
         project.oi_prefix || 'oi_',
         project.client_pid_param,
@@ -223,30 +235,31 @@ export class TrackingService {
       )
 
       // 10. Create Response Record
-       const { data: response, error: rError } = await db
-         .from('responses')
-         .insert([{
-           project_id: project.id,
-           project_code: project.project_code,
-           project_name: project.project_name,
-           uid: validatedUid,
-           clickid: sessionToken,
-           oi_session: sessionToken,
-           session_token: sessionToken,
-           status: 'in_progress',
-           ip: ctx.ip,
-           user_agent: ctx.userAgent,
-           device_type: deviceType,
-           supplier_uid: ctx.supplierToken,
-           supplier_id: supplierId || null,
-           supplier_token: ctx.supplierToken || null,
-           supplier_name: supplierName || null,
-           supplier: ctx.supplierToken || null,
-           source: ctx.supplierToken ? 'supplier' : 'direct',
-           created_at: new Date().toISOString()
-         }])
-         .select()
-         .single()
+const { data: response, error: rError } = await db
+  .from('responses')
+  .insert([{
+    project_id: project.id,
+    project_code: project.project_code,
+    project_name: project.project_name,
+    uid: validatedUid, // Store original incoming UID
+    clickid: sessionToken,
+    oi_session: sessionToken,
+    session_token: sessionToken,
+    status: 'in_progress',
+    ip: ctx.ip,
+    user_agent: ctx.userAgent,
+    device_type: deviceType,
+    supplier_uid: validatedUid, // Store original incoming UID
+    supplier_id: supplierId || null,
+    supplier_token: ctx.supplierToken || null,
+    supplier_name: supplierName || null,
+    supplier: ctx.supplierToken || null,
+    client_uid_sent: generatedUidForClient, // Store the UID sent to client (generated if feature enabled)
+    source: ctx.supplierToken ? 'supplier' : 'direct',
+    created_at: new Date().toISOString()
+  }])
+  .select()
+  .single()
 
       if (rError) throw rError
 
