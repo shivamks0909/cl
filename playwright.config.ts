@@ -1,14 +1,15 @@
 import { defineConfig, devices } from '@playwright/test';
 
+// Production UAT: run tests sequentially to avoid data dependency issues
 export default defineConfig({
   testDir: './tests/e2e',
-  fullyParallel: true,
+  fullyParallel: false,
   forbidOnly: !!process.env.CI,
   retries: process.env.CI ? 2 : 0,
-  workers: process.env.CI ? 1 : undefined,
+  workers: 1,
   reporter: 'html',
   use: {
-    baseURL: 'http://localhost:3000',
+    baseURL: 'https://april-iin9fwtcq-cypher1446-oss-projects.vercel.app',
     trace: 'on-first-retry',
     viewport: { width: 1280, height: 720 },
   },
@@ -17,12 +18,6 @@ export default defineConfig({
       name: 'chromium',
       use: { ...devices['Desktop Chrome'] },
     },
-    // We can add Firefox/WebKit later if needed, saving speed for Chromium now.
   ],
-  webServer: {
-    command: 'npm run dev',
-    url: 'http://localhost:3000',
-    reuseExistingServer: !process.env.CI,
-    timeout: 120 * 1000,
-  },
+  // No webServer for production testing - using deployed app
 });

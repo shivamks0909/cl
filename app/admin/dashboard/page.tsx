@@ -28,7 +28,7 @@ export default async function AdminDashboard({
     return (
         <div className="space-y-6 max-w-[1600px] mx-auto px-4 sm:px-6 lg:px-8 py-8 animate-in fade-in duration-700">
             <AutoRefresh interval={5000} />
-            
+
             <header className="flex flex-col sm:flex-row sm:items-center sm:justify-between border-b border-slate-200/60 pb-6 mb-8">
                 <div>
                     <h1 className="text-3xl font-extrabold text-slate-900 tracking-tight font-inter flex items-center gap-3">

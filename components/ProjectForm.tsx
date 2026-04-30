@@ -42,7 +42,7 @@ function SmartUrlMapper({ onApply }: { onApply: (baseUrl: string, uidParam: stri
             )
 
             onApply(u.toString(), selectedParam, detectedPidParam?.key || null)
-        } catch {}
+        } catch { }
     }
 
     return (
@@ -81,11 +81,10 @@ function SmartUrlMapper({ onApply }: { onApply: (baseUrl: string, uidParam: stri
                                 key={key}
                                 type="button"
                                 onClick={() => setSelectedParam(key)}
-                                className={`flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-mono border-2 transition-all ${
-                                    selectedParam === key
+                                className={`flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-mono border-2 transition-all ${selectedParam === key
                                         ? 'bg-emerald-500 border-emerald-600 text-white shadow-md shadow-emerald-200'
                                         : 'bg-white border-amber-200 text-slate-600 hover:border-amber-400 hover:bg-amber-50'
-                                }`}
+                                    }`}
                             >
                                 <span className="text-[8px] font-bold opacity-60 uppercase">{key}</span>
                                 <span className="text-[9px]">=</span>
@@ -147,7 +146,7 @@ export default function ProjectForm({ clients }: { clients: Client[] }) {
         client_uid_param: '',       // e.g. "uid" — vendor's UID param name
         oi_prefix: 'oi_',           // Internal tracking prefix (never reuse vendor names)
     })
-    const [uidParamRows, setUidParamRows] = useState<{param: string; value: string}[]>([])
+    const [uidParamRows, setUidParamRows] = useState<{ param: string; value: string }[]>([])
     const [links, setLinks] = useState<{ country_code: string; target_url: string; active: boolean }[]>([])
     const [loading, setLoading] = useState(false)
     const [error, setError] = useState<string | null>(null)
@@ -658,8 +657,8 @@ export default function ProjectForm({ clients }: { clients: Client[] }) {
                         </button>
                         <button
                             type="submit"
-                            disabled={loading || !formData.project_code || !formData.client_id}
-                            className="px-12 py-4 bg-indigo-500 text-white text-[13px] font-bold rounded-xl shadow-xl shadow-indigo-100/50 hover:bg-indigo-600 transition-all uppercase tracking-widest disabled:opacity-50"
+                            disabled={loading || !formData.project_code || !formData.client_id || !formData.base_url}
+                            className="px-12 py-4 bg-indigo-500 text-white text-[13px] font-bold rounded-xl shadow-xl shadow-indigo-100/50 hover:bg-indigo-600 transition-all uppercase tracking-widest disabled:opacity-50 disabled:cursor-not-allowed"
                         >
                             {loading ? 'Processing...' : 'Deploy Enterprise Route'}
                         </button>

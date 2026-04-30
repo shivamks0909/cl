@@ -1,8 +1,11 @@
 'use client'
-import { useState, useEffect } from 'react'
+
+import { Suspense, useState, useEffect } from 'react'
 import { useSearchParams } from 'next/navigation'
 
-export default function ClientSurveyPage() {
+export const dynamic = 'force-dynamic'
+
+function SurveyContent() {
   const searchParams = useSearchParams()
   const pid = searchParams.get('pid') || ''
   const uid = searchParams.get('uid') || ''
@@ -14,9 +17,31 @@ export default function ClientSurveyPage() {
   const [gender, setGender] = useState('')
   const [surveyLoading, setSurveyLoading] = useState(false)
   const [result, setResult] = useState('')
+  const [isLoading, setIsLoading] = useState(true)
+  const [hasError, setHasError] = useState(false)
 
-  // Validate required params
-  if (!pid || !uid) {
+  // Validate required params on client side only
+  useEffect(() => {
+    setIsLoading(false)
+    if (!pid || !uid) {
+      setHasError(true)
+    }
+  }, [pid, uid])
+
+  // Show loading state during hydration
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-[#0A0A0A] text-white flex items-center justify-center">
+        <div className="text-center">
+          <div className="w-16 h-16 border-4 border-purple-500 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+          <p className="text-xl">Loading...</p>
+        </div>
+      </div>
+    )
+  }
+
+  // Show error if missing params
+  if (hasError) {
     return (
       <div className="min-h-screen bg-[#0A0A0A] text-white flex items-center justify-center">
         <div className="text-center">
@@ -274,6 +299,19 @@ export default function ClientSurveyPage() {
       </div>
     )
   }
+}
 
-  return null
+export default function ClientSurveyPage() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen bg-[#0A0A0A] text-white flex items-center justify-center">
+        <div className="text-center">
+          <div className="w-16 h-16 border-4 border-purple-500 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+          <p className="text-xl">Loading survey...</p>
+        </div>
+      </div>
+    }>
+      <SurveyContent />
+    </Suspense>
+  )
 }

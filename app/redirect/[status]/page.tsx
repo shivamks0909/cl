@@ -1,8 +1,6 @@
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
-import { updateResponseStatus, getLandingPageData } from "@/lib/landingService";
-import { getClientIp } from "@/lib/getClientIp";
-import { RedirectResolver } from "@/lib/redirect-resolver";
+import { getLandingPageData } from "@/lib/landingService";
 import { NextRequest } from "next/server";
 import { auditService } from "@/lib/audit-service";
 import { WavyOutcomeView } from "@/components/public/WavyOutcomeView";
@@ -26,6 +24,7 @@ export default async function RedirectCallbackPage({
   params: Promise<{ status: string }>,
   searchParams: Promise<{ [key: string]: string | string[] | undefined }>
 }) {
+
   const { status: routeStatus } = await params;
   const paramsObj = await searchParams;
   const headersList = await headers();
@@ -34,7 +33,6 @@ export default async function RedirectCallbackPage({
   const dbStatus = statusMap[routeStatus] || 'terminate';
   
   // Get the dummy request for getLandingPageData
-  // Use headers to construct proper base URL (preserves host and port)
   const host = headersList.get('host') || 'localhost:3000';
   const protocol = headersList.get('x-forwarded-proto') || 'http';
   const baseUrl = `${protocol}://${host}`;
@@ -46,98 +44,119 @@ export default async function RedirectCallbackPage({
   const sid = data.clickid || (data.response?.oi_session) || (data.response?.clickid) || undefined;
   const ip = data.ip;
 
-  // Allow fallback: if no clickid, find response by pid + uid from the response data
-  // This enables redirect callbacks without session token when response was found via pid+uid
-  const fallbackClickid = !sid && data.response ?
-    (data.response.oi_session || data.response.clickid || null) : null;
+  // Get the session token (clickid)
+  const clickid = sid || (data.response?.oi_session) || (data.response?.clickid) || null;
 
-  // SECURITY: Require clickid (session token) for redirect callbacks
-  // But allow fallback if we found a response via pid+uid (non-strict mode)
-  if (!sid && !fallbackClickid) {
-    console.warn(`[Redirect Callback] Missing clickid - possible fake callback attempt from pid=${pid}, uid=${uid}`);
+  // ========================================================================
+  // NEW LOGIC: Handle missing/non-created projects gracefully
+  // ========================================================================
+  // 
+  // If project doesn't exist, we just show the landing page content
+  // without any DB updates or error pages.
+  // This allows clients to test redirects without requiring project creation.
+  //
+  // Security is still maintained: No valid session = No DB update
+  // ========================================================================
+
+  // Case 1: Project not found - show original design landing page without DB update
+  if (!data.project || pid === 'N/A' || pid === 'undefined') {
+    console.log(`[Redirect Callback] Project not found for pid=${pid}. Showing original design landing page without DB update.`);
+    
+    // Log the callback attempt for audit purposes
     await auditService.log({
-        event_type: 'SECURITY_CALLBACK_DENIED',
-        payload: { reason: 'missing_clickid', pid, uid, status: dbStatus },
-        ip: ip,
-        user_agent: headersList.get('user-agent') || 'Unknown'
+      event_type: 'REDIRECT_CALLBACK_PROJECT_NOT_FOUND',
+      payload: { reason: 'project_not_found', pid, uid, status: dbStatus },
+      ip: ip,
+      user_agent: headersList.get('user-agent') || 'Unknown'
     });
-    const errorUrl = new URL('/paused', dummyRequest.url);
-    errorUrl.searchParams.set('title', 'INVALID CALLBACK');
-    errorUrl.searchParams.set('desc', 'Session token missing.');
-    return redirect(errorUrl.toString());
+    
+    // Show original WavyOutcomeView design instead of plain HTML
+    const statusDisplay = routeStatus === 'quotafull' ? 'Quota Full' : (routeStatus === 'terminate' ? 'Terminated' : 'Complete');
+    return <WavyOutcomeView status={statusDisplay} statusKeyword={routeStatus} session={clickid} ip={ip} />;
   }
 
-  // Use fallback clickid if needed
-  const finalClickid = sid || fallbackClickid;
-
-  // Auto-create project if it doesn't exist (for redirect callbacks without pre-existing project)
-  if (!data.project && pid && pid !== 'N/A') {
-    console.log(`[Redirect Callback] No project found for pid=${pid}, attempting auto-create...`);
-    try {
-      const { dashboardService } = await import('@/lib/dashboardService');
-      const projectResult = await dashboardService.createProject({
-        project_code: pid,
-        project_name: `Auto-created Project ${pid}`,
-        base_url: `https://example.com/survey?pid=${pid}&uid={uid}`,
-        status: 'active',
-        source: 'auto_redirect'
-      });
-      if (projectResult.data) {
-        data.project = projectResult.data;
-        console.log(`[Redirect Callback] Auto-created project: ${pid}`);
-      } else if (projectResult.error) {
-        console.warn(`[Redirect Callback] Failed to create project:`, projectResult.error.message);
-      }
-    } catch (projErr: any) {
-      console.warn(`[Redirect Callback] Error creating project:`, projErr.message);
-    }
+  // Case 2: Project exists but no valid response/session found
+  // Still show landing page, but this time we know the project exists
+  if (!data.response && !clickid) {
+    console.log(`[Redirect Callback] No valid session found for project=${pid}. Showing landing page without DB update.`);
+    
+    // Log the callback attempt
+    await auditService.log({
+      event_type: 'REDIRECT_CALLBACK_NO_SESSION',
+      payload: { reason: 'no_valid_session', pid, uid, status: dbStatus },
+      ip: ip,
+      user_agent: headersList.get('user-agent') || 'Unknown'
+    });
+    
+    // Show landing page content
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center p-4">
+        <div className="max-w-2xl w-full bg-white rounded-lg shadow-xl p-8 text-center">
+          <h1 className="text-3xl font-bold text-gray-800 mb-4">Survey System</h1>
+          <p className="text-gray-600 mb-6">
+            {routeStatus === 'complete' ? 'Survey Completed' : 
+             routeStatus === 'terminate' ? 'Survey Terminated' : 
+             'Quota Full'}
+          </p>
+          <p className="text-sm text-gray-500">
+            Project: {pid}<br/>
+            User: {uid}
+          </p>
+          <p className="text-xs text-gray-400 mt-4">
+            (Landing page mode - no active session)
+          </p>
+        </div>
+      </div>
+    );
   }
+
+  // Case 3: Project exists AND we have a valid session/response
+  // NOW we can safely update the database
+  console.log(`[Redirect Callback] Valid project and session found. Updating database for pid=${pid}`);
+
+  // Import updateResponseStatus here (lazy load to keep code organized)
+  const { updateResponseStatus } = await import('@/lib/landingService');
 
   // Update the response status in database
-  // Enforce strictMode=true to prevent unauthorized completions
-  const updateResult = await updateResponseStatus(pid, uid, dbStatus, finalClickid || uid, `/redirect/${routeStatus}`, ip, true);
+  // strictMode=true ensures only valid sessions can update
+  const updateResult = await updateResponseStatus(pid, uid, dbStatus, clickid || uid, `/redirect/${routeStatus}`, ip, true);
 
-  // If update fails, reject the callback
+  // If update fails, still show landing page (don't show "Project Paused")
   if (!updateResult) {
-    console.warn(`[Redirect Callback] Security denial for callback: pid=${pid}, uid=${uid}, sid=${finalClickid}`);
+    console.warn(`[Redirect Callback] DB update failed for pid=${pid}, uid=${uid}. Showing landing page.`);
     
     await auditService.log({
-        event_type: 'SECURITY_CALLBACK_DENIED',
-        payload: { reason: 'invalid_session_or_mismatch', pid, uid, status: dbStatus, sid: finalClickid },
-        ip: ip,
-        user_agent: headersList.get('user-agent') || 'Unknown'
+      event_type: 'REDIRECT_CALLBACK_UPDATE_FAILED',
+      payload: { reason: 'db_update_failed', pid, uid, status: dbStatus },
+      ip: ip,
+      user_agent: headersList.get('user-agent') || 'Unknown'
     });
     
-    const errorUrl = new URL('/paused', dummyRequest.url);
-    errorUrl.searchParams.set('title', 'SECURITY VERIFICATION FAILED');
-    errorUrl.searchParams.set('desc', 'Invalid or expired session token. Please ensure you are completing from a valid survey link.');
-    return redirect(errorUrl.toString());
+    // Show landing page instead of "Project Paused" error
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center p-4">
+        <div className="max-w-2xl w-full bg-white rounded-lg shadow-xl p-8 text-center">
+          <h1 className="text-3xl font-bold text-gray-800 mb-4">Survey System</h1>
+          <p className="text-gray-600 mb-6">
+            {routeStatus === 'complete' ? 'Survey Completed' : 
+             routeStatus === 'terminate' ? 'Survey Terminated' : 
+             'Quota Full'}
+          </p>
+          <p className="text-sm text-gray-500">
+            Project: {pid}<br/>
+            User: {uid}
+          </p>
+          <p className="text-xs text-gray-400 mt-4">
+            (Landing page mode - DB update skipped)
+          </p>
+        </div>
+      </div>
+    );
   }
 
   console.log(`[Redirect Callback] Successfully updated response ${updateResult.id} to ${dbStatus}`);
 
-  // Resolve Redirect based on project/supplier configuration
-  const passedUid = (data as any).originalUid || uid;
-
-  const resolution = RedirectResolver.resolve(
-    dbStatus === 'quota_full' ? 'quota_full' : (dbStatus === 'terminate' ? 'terminate' : 'complete'),
-    data.project,
-    data.supplier,
-    data.link,
-    passedUid,
-    pid,
-    data.source || undefined
-  );
-
-  // If external redirect configured, redirect there
-  if (resolution.isExternal) {
-    console.log(`[Redirect Callback] External redirect to: ${resolution.url}`);
-    redirect(resolution.url);
-  }
-
-  // Use WavyOutcomeView like the original pages
+  // Success! Show the proper outcome view
   const statusDisplay = routeStatus === 'quotafull' ? 'Quota Full' : (routeStatus === 'terminate' ? 'Terminated' : 'Complete');
-  // WavyOutcomeView uses 'quotafull' not 'quota_full'
-  const statusKeyword = routeStatus;
-  return <WavyOutcomeView status={statusDisplay} statusKeyword={statusKeyword} session={finalClickid} ip={ip} />;
+  return <WavyOutcomeView status={statusDisplay} statusKeyword={routeStatus} session={clickid} ip={ip} />;
 }

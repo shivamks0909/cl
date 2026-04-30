@@ -25,7 +25,7 @@ function ensureProjectColumns(db: ReturnType<typeof getDb>) {
         if (!colNames.includes(col.name)) {
             try {
                 db.exec(`ALTER TABLE projects ADD COLUMN ${col.name} ${col.type}`)
-            } catch (_) {}
+            } catch (_) { }
         }
     }
 }
@@ -104,13 +104,13 @@ export const dashboardService = {
     async getClients(): Promise<any[]> {
         const db = getDb()
         let clients = db.prepare('SELECT * FROM clients').all() as any[]
-        
+
         if (clients.length === 0) {
             const id = `cli_${Date.now()}`
             db.prepare('INSERT INTO clients (id, name) VALUES (?, ?)').run(id, 'Default Client')
             clients = db.prepare('SELECT * FROM clients').all() as any[]
         }
-        
+
         return clients
     },
 
