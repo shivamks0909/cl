@@ -1,4 +1,4 @@
-import { headers } from "next/headers";
+﻿import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { getLandingPageData } from "@/lib/landingService";
 import { NextRequest } from "next/server";
@@ -156,7 +156,25 @@ export default async function RedirectCallbackPage({
 
   console.log(`[Redirect Callback] Successfully updated response ${updateResult.id} to ${dbStatus}`);
 
-  // Success! Show the proper outcome view
-  const statusDisplay = routeStatus === 'quotafull' ? 'Quota Full' : (routeStatus === 'terminate' ? 'Terminated' : 'Complete');
-  return <WavyOutcomeView status={statusDisplay} statusKeyword={routeStatus} session={clickid} ip={ip} />;
+   // If supplier flow with redirect configured, send external redirect
+   if (data.source === 'supplier' && data.supplier) {
+     const supplier = data.supplier as any;
+     let targetUrl: string | null = null;
+     if (routeStatus === 'complete' && supplier.complete_redirect_url) targetUrl = supplier.complete_redirect_url;
+     if (routeStatus === 'terminate' && supplier.terminate_redirect_url) targetUrl = supplier.terminate_redirect_url;
+     if (routeStatus === 'quotafull' && supplier.quotafull_redirect_url) targetUrl = supplier.quotafull_redirect_url;
+     if (targetUrl) {
+       const finalUrl = targetUrl
+         .replace(/{pid}/g, pid)
+         .replace(/{uid}/g, uid);
+       console.log(`[Redirect Callback] Supplier redirect to: ${finalUrl}`);
+       redirect(finalUrl);
+     }
+   }
+
+   // Fallback: show outcome view
+   const statusDisplay = routeStatus === 'quotafull' ? 'Quota Full' : (routeStatus === 'terminate' ? 'Terminated' : 'Complete');
+   return <WavyOutcomeView status={statusDisplay} statusKeyword={routeStatus} session={clickid} ip={ip} />;
 }
+
+

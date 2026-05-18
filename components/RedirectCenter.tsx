@@ -35,13 +35,25 @@ export default function RedirectCenter({ projects }: RedirectCenterProps) {
         { label: 'Explicit Tracking Link', url: `${baseUrl}/track?pid=${code}&uid=[uid]`, id: `${code}-entry-track`, desc: 'Direct hit to the tracking bridge.' },
     ]
 
-    const landingPageLinks = (code: string) => [
-        { label: 'Complete Redirect', url: `${baseUrl}/status?code=${code}&uid=[UID]&type=complete`, id: `${code}-complete`, desc: 'Standard client-side redirect.' },
-        { label: 'Terminate Redirect', url: `${baseUrl}/status?code=${code}&uid=[UID]&type=terminate`, id: `${code}-terminate`, desc: 'Standard client-side redirect.' },
-        { label: 'Quota Full Redirect', url: `${baseUrl}/status?code=${code}&uid=[UID]&type=quota`, id: `${code}-quota`, desc: 'Standard client-side redirect.' },
-        { label: 'Duplicate Check Redirect', url: `${baseUrl}/status?code=${code}&uid=[UID]&type=duplicate_string`, id: `${code}-dup-str`, desc: 'Standard client-side redirect.' },
-        { label: 'Security/IP Redirect', url: `${baseUrl}/status?code=${code}&uid=[UID]&type=security_terminate`, id: `${code}-sec-term`, desc: 'Access denied redirect.' },
-    ]
+    const landingPageLinks = (code: string) => {
+        const isLocalhost = baseUrl.includes('localhost') || baseUrl.includes('127.0.0.1');
+        if (isLocalhost) {
+            return [
+                { label: 'Complete Redirect', url: `http://localhost:3000/redirect/complete?pid=${code}&uid=TESTUSER_${code}`, id: `${code}-complete`, desc: 'Local test redirect.' },
+                { label: 'Terminate Redirect', url: `http://localhost:3000/redirect/terminate?pid=${code}&uid=TESTUSER_${code}`, id: `${code}-terminate`, desc: 'Local test redirect.' },
+                { label: 'Quota Full Redirect', url: `http://localhost:3000/redirect/quotafull?pid=${code}&uid=TESTUSER_${code}`, id: `${code}-quota`, desc: 'Local test redirect.' },
+                { label: 'Duplicate Check Redirect', url: `${baseUrl}/status?code=${code}&uid=[UID]&type=duplicate_string`, id: `${code}-dup-str`, desc: 'Standard client-side redirect.' },
+                { label: 'Security/IP Redirect', url: `${baseUrl}/status?code=${code}&uid=[UID]&type=security_terminate`, id: `${code}-sec-term`, desc: 'Access denied redirect.' },
+            ];
+        }
+        return [
+            { label: 'Complete Redirect', url: `${baseUrl}/status?code=${code}&uid=[UID]&type=complete`, id: `${code}-complete`, desc: 'Standard client-side redirect.' },
+            { label: 'Terminate Redirect', url: `${baseUrl}/status?code=${code}&uid=[UID]&type=terminate`, id: `${code}-terminate`, desc: 'Standard client-side redirect.' },
+            { label: 'Quota Full Redirect', url: `${baseUrl}/status?code=${code}&uid=[UID]&type=quota`, id: `${code}-quota`, desc: 'Standard client-side redirect.' },
+            { label: 'Duplicate Check Redirect', url: `${baseUrl}/status?code=${code}&uid=[UID]&type=duplicate_string`, id: `${code}-dup-str`, desc: 'Standard client-side redirect.' },
+            { label: 'Security/IP Redirect', url: `${baseUrl}/status?code=${code}&uid=[UID]&type=security_terminate`, id: `${code}-sec-term`, desc: 'Access denied redirect.' },
+        ];
+    }
 
     const postbackLinks = (code: string) => [
         { label: 'S2S Complete Postback', url: `${baseUrl}/api/callback?cid=[SESSION]&type=complete`, id: `${code}-pb-complete`, desc: 'Server-to-server callback. Replace [SESSION] with the oi_session token.' },

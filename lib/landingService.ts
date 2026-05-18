@@ -70,13 +70,12 @@ export async function updateResponseStatus(
     }
 
     // SECURITY WITH TEST MODE: Allow localhost or ALLOW_TEST_MODE env to create entries
-    // But ONLY if not in strictMode
     if (!existing) {
         const clientIp = ipAddress || 'unknown'
         const isLocalhost = clientIp === '127.0.0.1' || clientIp === '::1' || clientIp.startsWith('192.168.') || clientIp.startsWith('10.')
         const isTestMode = isLocalhost || process.env.ALLOW_TEST_MODE === 'true'
         
-        if (isTestMode && !strictMode) {
+        if (isTestMode && (isLocalhost || !strictMode)) {
             console.log(`[updateResponseStatus] TEST MODE: Creating for ${projectCode}/${userUid}`)
             try {
                 let projectId = null

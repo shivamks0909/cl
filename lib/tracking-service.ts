@@ -1,4 +1,4 @@
-import { getUnifiedDb } from './unified-db'
+﻿import { getUnifiedDb } from './unified-db'
 import { auditService } from './audit-service'
 import * as crypto from 'crypto'
 
@@ -196,12 +196,23 @@ export class TrackingService {
       let generatedUidForClient: string = validatedUid // Default: use original UID
 
       if (project.pid_prefix) {
-        const { data: updatedProject, error: pidError } = await db
-          .from('projects')
-          .update({ pid_counter: (project.pid_counter || 0) + 1 })
-          .eq('id', project.id)
-          .select('pid_counter')
-          .single()
+// Fetch current counter and increment atomically? Using fetch-then-update for now
+const { data: currentProj, error: fetchErr } = await db
+  .from("projects")
+  .select("pid_counter")
+  .eq("id", project.id)
+  .single();
+if (fetchErr) {
+  console.error("[TrackingService] Failed to fetch project counter:", fetchErr.message);
+  throw fetchErr;
+}
+const newCounter = (currentProj?.pid_counter || 0) + 1;
+const { data: updatedProject, error: pidError } = await db
+  .from("projects")
+  .update({ pid_counter: newCounter })
+  .eq("id", project.id)
+  .select("pid_counter")
+  .single();
 
         if (!pidError && updatedProject) {
           const prefix = project.pid_prefix || ''
@@ -255,6 +266,7 @@ const { data: response, error: rError } = await db
     supplier_name: supplierName || null,
     supplier: ctx.supplierToken || null,
     client_uid_sent: generatedUidForClient, // Store the UID sent to client (generated if feature enabled)
+    client_pid: clientPid,
     source: ctx.supplierToken ? 'supplier' : 'direct',
     created_at: new Date().toISOString()
   }])
@@ -327,18 +339,27 @@ const { data: response, error: rError } = await db
   /**
    * Update response status
    */
-  async updateStatus({ clickid, status }: { clickid: string, status: string }) {
+   /**
+    * Update response status
+    */
+  static async updateStatus({ clickid, status }: { clickid: string, status: string }) {
     const { database: db } = await getUnifiedDb()
-    const { error } = await db
-      .from('responses')
-      .update({ 
-        status, 
-        completion_time: status === 'complete' ? new Date().toISOString() : null,
+    // Perform update and return the updated row to verify it exists
+    const { data, error } = await db
+      .from("responses")
+      .update({
+        status,
+        completion_time: status === "complete" ? new Date().toISOString() : null,
         updated_at: new Date().toISOString()
       })
-      .eq('clickid', clickid)
+      .eq("clickid", clickid)
+      .select("id")
+      .maybeSingle();  // Returns null if no row matched
 
-    return { success: !error, error }
+    if (error || !data) {
+      return { success: false, error: error || new Error("No response found for given clickid") };
+    }
+    return { success: true };
   }
 
   /**

@@ -199,6 +199,7 @@ export const dashboardService = {
             ...m,
             project_code: m.project_code || 'Unknown',
             project_name: m.project_name || 'Unknown',
+            clicks_total: m.clicks_total || 0,
             clicks_today: m.clicks_today || 0,
             in_progress_today: m.in_progress_today || 0,
             completes_today: m.completes_today || 0,

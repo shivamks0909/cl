@@ -383,9 +383,10 @@ export default function ProjectForm({ clients }: { clients: Client[] }) {
                                 </div>
                             </div>
                             <button
-                                type="button"
-                                onClick={() => setFormData({ ...formData, force_pid_as_uid: !formData.force_pid_as_uid })}
-                                className={`relative inline-flex h-5 w-10 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${formData.force_pid_as_uid ? 'bg-emerald-500' : 'bg-slate-200'}`}
+                              type="button"
+                              data-testid="force-pid-as-uid-toggle"
+                              onClick={() => setFormData({ ...formData, force_pid_as_uid: !formData.force_pid_as_uid })}
+                              className={`relative inline-flex h-5 w-10 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${formData.force_pid_as_uid ? 'bg-emerald-500' : 'bg-slate-200'}`}
                             >
                                 <span className={`pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${formData.force_pid_as_uid ? 'translate-x-5' : 'translate-x-0'}`} />
                             </button>
