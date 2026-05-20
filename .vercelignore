@@ -1,0 +1,27 @@
+# Vercel ignore file - exclude non-essential files
+node_modules/
+.next/
+.claude-skills/
+.claude-skills-repos/
+.claude/
+.agents/
+scratch/
+quantclix-dashboard.html
+.conversation-context.md
+INSTALLED_AGENTS_SKILLS.md
+PROJECT_DOCUMENTATION.md
+QUANTCLIX_TRACKING_PROGRESS.md
+*.log
+*.txt
+tmp/
+temp_*
+test-results/
+playwright-report/
+.env
+.env.local
+.env.production
+.vercel-token
+*.db
+*.db-shm
+*.db-wal
+data/

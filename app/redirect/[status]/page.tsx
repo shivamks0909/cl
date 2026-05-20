@@ -86,7 +86,7 @@ export default async function RedirectCallbackPage({
         || '0.0.0.0'
     const userAgent = headersList.get('user-agent') || 'Unknown'
     const referer = headersList.get('referer') || null
-    const host = headersList.get('host') || 'localhost:3000'
+    const host = headersList.get('host') || process.env.NEXT_PUBLIC_APP_URL?.replace(/^https?:\/\//, '') || 'track.opinioninsights.in'
 
     // Map route status to DB status
     const dbStatus = (statusMap[routeStatus] || 'terminate') as 'complete' | 'terminate' | 'quota_full'
