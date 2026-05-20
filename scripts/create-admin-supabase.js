@@ -8,6 +8,7 @@
 
 const { createClient } = require('@supabase/supabase-js');
 const bcrypt = require('bcryptjs');
+require('dotenv').config({ path: ['.env.local', '.env'] });
 
 // Get Supabase credentials from environment
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;

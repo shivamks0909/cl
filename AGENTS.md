@@ -1,8 +1,10 @@
----
+
+```
 description: "Use when doing ANY task involving Supabase. Triggers: Supabase products (Database, Auth, Edge Functions, Realtime, Storage, Vectors, Cron, Queues); client libraries and SSR integrations (supabase-js, @supabase/ssr) in Next.js, React, SvelteKit, Astro, Remix; auth issues (login, logout, sessions, JWT, cookies, getSession, getUser, getClaims, RLS); Supabase CLI or MCP server; schema changes, migrations, security audits, Postgres extensions (pg_graphql, pg_cron, pg_vector)."
 globs: *
 alwaysApply: true
----
+```
+
 
 # PanelFlow - Supabase Integration Guide
 
@@ -22,12 +24,12 @@ SUPABASE_SERVICE_ROLE_KEY=your-service-role-key  # Server-side only
 
 ## Key Files
 
-| File | Purpose |
-|------|---------|
-| `lib/unified-db.ts` | Main database client wrapper |
-| `lib/supabase-server.ts` | Server-side Supabase client |
-| `app/login/actions.ts` | Authentication actions |
-| `app/api/callback/route.ts` | Survey callback handling |
+| File                          | Purpose                      |
+| ----------------------------- | ---------------------------- |
+| `lib/unified-db.ts`         | Main database client wrapper |
+| `lib/supabase-server.ts`    | Server-side Supabase client  |
+| `app/login/actions.ts`      | Authentication actions       |
+| `app/api/callback/route.ts` | Survey callback handling     |
 
 ## Supabase CLI
 
@@ -42,6 +44,7 @@ supabase <group> <command> --help # Flags
 ## Database Schema
 
 Tables are managed through migrations in `scripts/` directory. Key tables:
+
 - `projects` - Survey project configuration
 - `suppliers` - Supplier/vendor data
 - `supplier_project_links` - Project-supplier associations
@@ -59,6 +62,7 @@ Tables are managed through migrations in `scripts/` directory. Key tables:
 ## Documentation
 
 Before implementing Supabase features, consult:
+
 1. MCP `search_docs` tool for relevant snippets
 2. https://supabase.com/docs - Official documentation
 3. `.agents/skills/supabase/SKILL.md` - Local skill guide

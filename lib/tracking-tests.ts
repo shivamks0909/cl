@@ -3,7 +3,7 @@
  * Tests auto-project creation, fallback mechanisms, and data integrity
  */
 
-import { trackingService } from './tracking-service'
+import { trackingService, TrackingService } from './tracking-service'
 import { getDb, closeDb } from './db'
 import Database from 'better-sqlite3'
 
@@ -181,7 +181,7 @@ class TrackingSystemTests {
             })
 
             // Update status
-            const result = await trackingService.updateStatus({
+            const result = await TrackingService.updateStatus({
                 clickid,
                 status: 'complete'
             })
@@ -313,7 +313,7 @@ class TrackingSystemTests {
             }
 
             // Step 3: Complete survey
-            const completeResult = await trackingService.updateStatus({
+            const completeResult = await TrackingService.updateStatus({
                 clickid,
                 status: 'complete'
             })

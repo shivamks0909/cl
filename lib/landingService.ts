@@ -167,6 +167,7 @@ export async function getLandingPageData(
     const code = (params.pid as string) || (params.code as string) || cookiePid || "N/A";
     const uid = (params.uid as string) || cookieUid || "N/A";
     const clickid = (params.oi_session as string) || (params.session_token as string) || (params.clickid as string) || (params.cid as string) || cookieSid || null;
+    const oi_sid  = (params.oi_sid as string) || null;   // NEW: secure session identifier
     const ip = (params.ip as string) || getClientIp(request);
 
     const result = {
@@ -183,6 +184,50 @@ export async function getLandingPageData(
 
     const db = await createAdminClient()
     if (!db) return result
+
+    // NEW: Priority 0 — resolve by oi_sid (secure session lookup)
+    if (oi_sid && !result.response) {
+        try {
+            const { data: session } = await db.database
+                .from('tracking_sessions')
+                .select('*')
+                .eq('sid', oi_sid)
+                .maybeSingle()
+
+            if (session?.response_id) {
+                const { data: resp } = await db.database
+                    .from('responses')
+                    .select('*, suppliers(*)')
+                    .eq('id', session.response_id)
+                    .maybeSingle()
+
+                if (resp) {
+                    result.response = resp
+                    result.pid = resp.project_code || session.pid || code
+                    result.uid = resp.uid || session.uid || uid
+                    result.supplier = resp.suppliers
+                    result.source = resp.source
+                    console.log(`[getLandingPageData] oi_sid resolved: session=${oi_sid} response=${resp.id}`)
+
+                    if (!result.supplier && resp.supplier_token) {
+                        const { data: s } = await db.database
+                            .from('suppliers')
+                            .select('*')
+                            .eq('supplier_token', resp.supplier_token)
+                            .maybeSingle()
+                        result.supplier = s
+                    }
+                }
+            } else if (session) {
+                // Session exists but response not yet linked — use session metadata
+                result.pid = session.pid || code
+                result.uid = session.uid || uid
+                console.log(`[getLandingPageData] oi_sid found (no response yet): pid=${result.pid} uid=${result.uid}`)
+            }
+        } catch (err: any) {
+            console.error('[getLandingPageData] oi_sid lookup error:', err.message)
+        }
+    }
 
     if (clickid) {
         // ... (existing lookup logic remains similar but we ensure we get supplier token)

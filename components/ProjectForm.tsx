@@ -422,8 +422,6 @@ export default function ProjectForm({ clients }: { clients: Client[] }) {
                                     value={formData.base_url}
                                     onChange={(e) => setFormData({ ...formData, base_url: e.target.value })}
                                     className={`w-full px-4 py-3 border border-slate-200 rounded-xl focus:ring-4 focus:ring-indigo-500/5 focus:border-indigo-400 outline-none transition-all text-xs font-medium text-slate-700 placeholder:text-slate-300 font-mono ${formData.is_multi_country ? 'cursor-not-allowed bg-slate-50/50' : 'bg-white'}`}
-                                    required={!formData.is_multi_country}
-                                    disabled={formData.is_multi_country}
                                 />
                             </div>
                             <div className="hidden"> {/* spacer - keeps grid alignment */}</div>
@@ -658,8 +656,8 @@ export default function ProjectForm({ clients }: { clients: Client[] }) {
                         </button>
                         <button
                             type="submit"
-                            disabled={loading || !formData.project_code || !formData.client_id || !formData.base_url}
-                            className="px-12 py-4 bg-indigo-500 text-white text-[13px] font-bold rounded-xl shadow-xl shadow-indigo-100/50 hover:bg-indigo-600 transition-all uppercase tracking-widest disabled:opacity-50 disabled:cursor-not-allowed"
+                            disabled={loading || !formData.project_code || !formData.client_id || (!formData.is_multi_country && !formData.base_url)}
+                            className="px-12 py-4 bg-indigo-500 text-white text-[13px] font-bold rounded-xl shadow-xl shadow-indigo-100/50 hover:bg-indigo-600 transition-all uppercase tracking-widest"
                         >
                             {loading ? 'Processing...' : 'Deploy Enterprise Route'}
                         </button>

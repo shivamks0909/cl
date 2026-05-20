@@ -117,12 +117,27 @@ async function applyFixes() {
         }
 
         // ============================================
-        // 5. VERIFY ALL COLUMNS EXIST
+        // 5. ADD complete_target TO projects
         // ============================================
-        console.log('[5] Verifying all required columns...');
+        console.log('[5] Adding projects.complete_target...');
+        try {
+            await client.query(`
+                ALTER TABLE projects
+                ADD COLUMN IF NOT EXISTS complete_target INTEGER;
+            `);
+            console.log('   ✓ complete_target added');
+        } catch (e) {
+            console.log('   ✗ Error:', e.message);
+        }
+
+        // ============================================
+        // 6. VERIFY ALL COLUMNS EXIST
+        // ============================================
+        console.log('[6] Verifying all required columns...');
         const required = [
             { table: 'users', column: 'email' },
             { table: 'users', column: 'password' },
+            { table: 'projects', column: 'complete_target' },
             { table: 'responses', column: 's2s_verified' },
             { table: 'responses', column: 's2s_verified_at' },
             { table: 'callback_events', column: 'id' }
@@ -131,8 +146,8 @@ async function applyFixes() {
         const checkCols = await client.query(`
             SELECT table_name, column_name
             FROM information_schema.columns
-            WHERE table_name IN ('users', 'responses', 'callback_events')
-              AND column_name IN ('email', 'password', 's2s_verified', 's2s_verified_at', 'id')
+            WHERE table_name IN ('users', 'projects', 'responses', 'callback_events')
+              AND column_name IN ('email', 'password', 'complete_target', 's2s_verified', 's2s_verified_at', 'id')
             ORDER BY table_name, column_name;
         `);
 
@@ -148,6 +163,7 @@ async function applyFixes() {
         console.log('');
         console.log('Summary:');
         console.log('  • users table created (admin login will work)');
+        console.log('  • projects.complete_target added (quota target support)');
         console.log('  • responses.s2s_verified added (S2S check works)');
         console.log('  • responses.s2s_verified_at added (timestamps recorded)');
         console.log('  • callback_events table created (legacy callbacks work)');
@@ -155,8 +171,9 @@ async function applyFixes() {
         console.log('NEXT STEPS:');
         console.log('1. Create an admin user in the users table');
         console.log('2. Test login flow');
-        console.log('3. Test S2S verification flow');
-        console.log('4. Verify callback logging');
+        console.log('3. Test project creation with PID configuration');
+        console.log('4. Test S2S verification flow');
+        console.log('5. Verify callback logging');
         console.log('');
 
     } catch (error) {

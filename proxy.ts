@@ -61,7 +61,7 @@ function applySecurityHeaders(response: NextResponse, request: NextRequest) {
     const csp = [
         "default-src 'self'",
         `script-src 'self' 'nonce-${nonce}'`,
-        `style-src 'self' 'nonce-${nonce}'`,
+        "style-src 'self' 'unsafe-inline'",
         "img-src 'self' data:",
         "font-src 'self' data:",
         "connect-src 'self'",

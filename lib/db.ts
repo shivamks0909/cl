@@ -323,6 +323,12 @@ function initializeSchema(db: Database.Database) {
     db.exec(`ALTER TABLE responses ADD COLUMN is_manual INTEGER DEFAULT 0`)
   }
 
+  // Session tracking field — links a response to its tracking_session
+  if (!responseColNamesS2S.includes('session_id')) {
+    db.exec(`ALTER TABLE responses ADD COLUMN session_id TEXT`)
+    db.exec(`CREATE INDEX IF NOT EXISTS idx_responses_session_id ON responses(session_id)`)
+  }
+
   // Check and add unverified_action to s2s_config if not exists
   const s2sConfigColumns = db.pragma('table_info(s2s_config)')
   const s2sConfigColumnNames = (s2sConfigColumns as any[]).map(col => col.name)
@@ -330,6 +336,47 @@ function initializeSchema(db: Database.Database) {
   if (!s2sConfigColumnNames.includes('unverified_action')) {
     db.exec(`ALTER TABLE s2s_config ADD COLUMN unverified_action TEXT DEFAULT 'terminate'`)
   }
+
+  // ============================================
+  // TRACKING_SESSIONS TABLE (secure session layer)
+  // ============================================
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS tracking_sessions (
+      id          TEXT PRIMARY KEY DEFAULT (lower(hex(randomblob(16)))),
+      sid         TEXT NOT NULL UNIQUE,
+      uid         TEXT NOT NULL,
+      pid         TEXT,
+      project_id  TEXT,
+      supplier_token TEXT,
+      supplier_id TEXT,
+      source      TEXT NOT NULL DEFAULT 'direct',
+      survey_url  TEXT,
+      ip          TEXT,
+      user_agent  TEXT,
+      country_code TEXT,
+      device_type TEXT,
+      status      TEXT NOT NULL DEFAULT 'launched'
+                  CHECK (status IN ('launched','complete','terminate','quota_full','expired')),
+      response_id TEXT,
+      metadata    TEXT DEFAULT '{}',
+      launched_at TEXT NOT NULL DEFAULT (datetime('now')),
+      resolved_at TEXT,
+      expires_at  TEXT NOT NULL DEFAULT (datetime('now', '+48 hours')),
+      created_at  TEXT NOT NULL DEFAULT (datetime('now')),
+      updated_at  TEXT
+    )
+  `)
+
+  db.exec(`
+    CREATE INDEX IF NOT EXISTS idx_tracking_sessions_sid         ON tracking_sessions(sid);
+    CREATE INDEX IF NOT EXISTS idx_tracking_sessions_uid         ON tracking_sessions(uid);
+    CREATE INDEX IF NOT EXISTS idx_tracking_sessions_pid         ON tracking_sessions(pid);
+    CREATE INDEX IF NOT EXISTS idx_tracking_sessions_project_id  ON tracking_sessions(project_id);
+    CREATE INDEX IF NOT EXISTS idx_tracking_sessions_response_id ON tracking_sessions(response_id);
+    CREATE INDEX IF NOT EXISTS idx_tracking_sessions_status      ON tracking_sessions(status);
+    CREATE INDEX IF NOT EXISTS idx_tracking_sessions_expires_at  ON tracking_sessions(expires_at);
+  `)
+  console.log('[DB] tracking_sessions table initialized')
 
   // ============================================
   // CALLBACK_EVENTS TABLE (for event tracking)
@@ -366,6 +413,115 @@ function initializeSchema(db: Database.Database) {
       error_message TEXT,
       created_at TEXT NOT NULL DEFAULT (datetime('now'))
     )
+  `)
+
+  // ============================================
+  // QA LAB TABLES
+  // ============================================
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS qa_test_runs (
+      id TEXT PRIMARY KEY DEFAULT (lower(hex(randomblob(16)))),
+      run_id TEXT UNIQUE NOT NULL,
+      started_at TEXT NOT NULL DEFAULT (datetime('now')),
+      completed_at TEXT,
+      total_tests INT DEFAULT 0,
+      passed INT DEFAULT 0,
+      failed INT DEFAULT 0,
+      environment TEXT DEFAULT 'development',
+      base_url TEXT,
+      status TEXT DEFAULT 'running',
+      summary TEXT DEFAULT '{}',
+      created_by TEXT DEFAULT 'system'
+    )
+  `)
+
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS qa_test_logs (
+      id TEXT PRIMARY KEY DEFAULT (lower(hex(randomblob(16)))),
+      run_id TEXT,
+      test_name TEXT NOT NULL,
+      test_category TEXT,
+      passed BOOLEAN NOT NULL,
+      status_code INT,
+      db_verify TEXT,
+      error_message TEXT,
+      execution_time_ms INT,
+      created_at TEXT NOT NULL DEFAULT (datetime('now'))
+    )
+  `)
+
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS qa_callback_logs (
+      id TEXT PRIMARY KEY DEFAULT (lower(hex(randomblob(16)))),
+      endpoint TEXT,
+      pid TEXT,
+      uid TEXT,
+      clickid TEXT,
+      oi_session TEXT,
+      status_val TEXT,
+      supplier TEXT,
+      source TEXT,
+      blocked BOOLEAN DEFAULT FALSE,
+      block_reason TEXT,
+      response_time_ms INT,
+      db_response TEXT,
+      raw_url TEXT,
+      created_at TEXT NOT NULL DEFAULT (datetime('now'))
+    )
+  `)
+
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS qa_session_inspections (
+      id TEXT PRIMARY KEY DEFAULT (lower(hex(randomblob(16)))),
+      clickid TEXT,
+      oi_session TEXT,
+      pid TEXT,
+      uid TEXT,
+      supplier TEXT,
+      ip_address TEXT,
+      user_agent TEXT,
+      current_status TEXT,
+      callback_count INT DEFAULT 1,
+      callback_history TEXT DEFAULT '[]',
+      validation_state TEXT,
+      created_at TEXT NOT NULL DEFAULT (datetime('now')),
+      updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+    )
+  `)
+
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS qa_replay_logs (
+      id TEXT PRIMARY KEY DEFAULT (lower(hex(randomblob(16)))),
+      original_callback_id TEXT,
+      replayed_at TEXT NOT NULL DEFAULT (datetime('now')),
+      response_status INT,
+      db_result TEXT,
+      replay_type TEXT,
+      notes TEXT
+    )
+  `)
+
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS qa_fraud_logs (
+      id TEXT PRIMARY KEY DEFAULT (lower(hex(randomblob(16)))),
+      fraud_type TEXT,
+      pid TEXT,
+      uid TEXT,
+      ip_address TEXT,
+      confidence_score FLOAT,
+      blocked BOOLEAN DEFAULT FALSE,
+      details TEXT,
+      created_at TEXT NOT NULL DEFAULT (datetime('now'))
+    )
+  `)
+
+  // Indexes for QA tables
+  db.exec(`
+    CREATE INDEX IF NOT EXISTS idx_qa_test_logs_run_id ON qa_test_logs(run_id);
+    CREATE INDEX IF NOT EXISTS idx_qa_callback_logs_clickid ON qa_callback_logs(clickid);
+    CREATE INDEX IF NOT EXISTS idx_qa_session_inspections_clickid ON qa_session_inspections(clickid);
+    CREATE INDEX IF NOT EXISTS idx_qa_session_inspections_oi_session ON qa_session_inspections(oi_session);
+    CREATE INDEX IF NOT EXISTS idx_qa_fraud_logs_pid ON qa_fraud_logs(pid);
   `)
 
   // Create fallback project if not exists

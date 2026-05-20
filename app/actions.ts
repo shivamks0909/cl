@@ -92,7 +92,11 @@ export async function flushResponsesAction(): Promise<{ success: boolean; error:
 // Project Actions
 export async function createProjectAction(formData: any, countryUrls: any[] = []): Promise<{ data: any | null; error: any }> {
     try {
-        const result = await dashboardService.createProject(formData)
+        const projectData = {
+            ...formData,
+            country_urls: countryUrls
+        }
+        const result = await dashboardService.createProject(projectData)
         if (result.error) return { data: null, error: result.error }
         revalidatePath('/admin/projects')
         return { data: result.data, error: null }

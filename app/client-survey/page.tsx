@@ -11,6 +11,7 @@ function SurveyContent() {
   const uid = searchParams.get('uid') || ''
   const oiSession = searchParams.get('oi_session') || uid || ''
   const oiSig = searchParams.get('oi_sig') || ''
+  const oiSid = searchParams.get('oi_sid') || ''
   
   const [step, setStep] = useState(1) // 1: Age, 2: Gender, 3: Survey
   const [age, setAge] = useState('')
@@ -78,18 +79,18 @@ function SurveyContent() {
   }
 
   const handleSurveyComplete = async () => {
-    // Redirect to your complete redirect
-    window.location.href = `/redirect/complete?pid=${pid}&uid=${uid}`
+    // Redirect to your complete redirect with session tracking ID
+    window.location.href = `/redirect/complete?pid=${pid}&uid=${uid}${oiSid ? `&oi_sid=${oiSid}` : ''}`
   }
 
   const handleTerminate = async () => {
-    // Redirect to your terminate redirect
-    window.location.href = `/redirect/terminate?pid=${pid}&uid=${uid}`
+    // Redirect to your terminate redirect with session tracking ID
+    window.location.href = `/redirect/terminate?pid=${pid}&uid=${uid}${oiSid ? `&oi_sid=${oiSid}` : ''}`
   }
 
   const handleQuotaFull = async () => {
-    // Redirect to your quota full redirect
-    window.location.href = `/redirect/quotafull?pid=${pid}&uid=${uid}`
+    // Redirect to your quota full redirect with session tracking ID
+    window.location.href = `/redirect/quotafull?pid=${pid}&uid=${uid}${oiSid ? `&oi_sid=${oiSid}` : ''}`
   }
 
   // Step 1: Age Question

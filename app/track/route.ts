@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { getUnifiedDb } from '../../lib/unified-db'
 import { getClientIp } from '../../lib/getClientIp'
 import { TrackingService, EntryContext } from '../../lib/tracking-service'
+import { SessionService } from '../../lib/session-service'
 import { auditService } from '../../lib/audit-service'
 
 export const dynamic = 'force-dynamic'
@@ -57,15 +58,58 @@ export async function GET(request: NextRequest) {
 
         // 2. Fetch GeoIP data
         let geoData = null
+        let countryCode: string | null = null
         try {
             const { getCountryFromIp } = await import('@/lib/geoip-service')
             const geoCountry = await getCountryFromIp(request, ip)
             geoData = { country: geoCountry }
+            countryCode = geoCountry || null
         } catch (e) {
             console.error('[Track] GeoIP Lookup failed:', e)
         }
 
-        // 3. Process Entry through Unified Tracking Service
+        // 3. Detect device type
+        const detectDevice = (ua: string): string => {
+            const lowerUA = ua.toLowerCase()
+            if (/(tablet|ipad|playbook|silk)|(android(?!.*mobi))/i.test(lowerUA)) return 'Tablet'
+            if (/Mobile|Android|iP(hone|od)|IEMobile|BlackBerry|Kindle|Silk-Accelerated|(hpw|web)OS|Opera M(obi|ini)/.test(ua)) return 'Mobile'
+            return 'Desktop'
+        }
+        const deviceType = detectDevice(userAgent)
+
+        // 4. Resolve supplier if token provided
+        let supplierId: string | null = null
+        if (supplierToken) {
+            const { data: supplier } = await db
+                .from('suppliers')
+                .select('id')
+                .eq('supplier_token', supplierToken)
+                .eq('status', 'active')
+                .maybeSingle()
+            if (supplier) supplierId = supplier.id
+        }
+
+        // ============================================================
+        // 5. CREATE SECURE SESSION — before processing the entry
+        //    The session is created here so that:
+        //    (a) callbacks can be verified against it
+        //    (b) the sid becomes the tracking anchor
+        // ============================================================
+        const session = await SessionService.createSession({
+            uid: incomingUid,
+            pid: code,
+            project_id: project.id,
+            supplier_token: supplierToken,
+            supplier_id: supplierId,
+            source: supplierToken ? 'supplier' : 'direct',
+            ip,
+            user_agent: userAgent,
+            country_code: countryCode,
+            device_type: deviceType,
+            metadata: { query: Object.fromEntries(searchParams.entries()) }
+        })
+
+        // 6. Process Entry through Unified Tracking Service
         const ctx: EntryContext = {
             projectId: project.id,
             rid: incomingUid,
@@ -80,7 +124,32 @@ export async function GET(request: NextRequest) {
         const result = await TrackingService.processEntry(ctx)
 
         if (result.success && result.redirectUrl) {
-            const response = NextResponse.redirect(new URL(result.redirectUrl))
+            // ============================================================
+            // 7. Inject the sid into the survey redirect URL so it comes
+            //    back in the callback (oi_sid param).
+            //    We also link the response row to the session.
+            // ============================================================
+            let finalRedirectUrl = result.redirectUrl
+
+            if (session) {
+                try {
+                    const urlObj = new URL(finalRedirectUrl)
+                    urlObj.searchParams.set('oi_sid', session.sid)
+                    finalRedirectUrl = urlObj.toString()
+                } catch {
+                    // Malformed URL — append manually
+                    const sep = finalRedirectUrl.includes('?') ? '&' : '?'
+                    finalRedirectUrl = `${finalRedirectUrl}${sep}oi_sid=${session.sid}`
+                }
+
+                // Link response ↔ session
+                if (result.responseData?.id) {
+                    await SessionService.linkResponseToSession(session.sid, result.responseData.id)
+                    await SessionService.updateSurveyUrl(session.sid, finalRedirectUrl)
+                }
+            }
+
+            const response = NextResponse.redirect(new URL(finalRedirectUrl))
             
             // Set tracking cookies for persistence
             const cookieOptions = { 
@@ -95,11 +164,14 @@ export async function GET(request: NextRequest) {
                 response.cookies.set('last_sid', result.responseData.oi_session, cookieOptions)
             }
             response.cookies.set('last_pid', code, cookieOptions)
+            if (session) {
+                response.cookies.set('oi_sid', session.sid, { ...cookieOptions, httpOnly: false })
+            }
             
             return response
         }
 
-        // 4. Handle Redirections for Errors/Quota
+        // 8. Handle Redirections for Errors/Quota
         const uid = encodeURIComponent(incomingUid)
         const errorMap: Record<string, string> = {
           PROJECT_PAUSED:      `/status?code=${code}&uid=${uid}&type=paused`,

@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { Project, Client } from '@/lib/types'
 import { ChevronDown, Save, X, AlertCircle, Link as LinkIcon, Plus, Trash2 } from 'lucide-react'
@@ -42,9 +42,11 @@ export default function ProjectEditForm({ project, clients }: ProjectEditFormPro
 
     // Initialize links if multi-country
     const [links, setLinks] = useState<{ country_code: string; target_url: string; active: boolean }[]>(
-        project.is_multi_country && project.country_urls
+        project.is_multi_country && Array.isArray(project.country_urls) && project.country_urls.length > 0
             ? (project.country_urls as any[]).map(l => ({ ...l, active: l.active !== false }))
-            : []
+            : project.is_multi_country
+                ? [{ country_code: '', target_url: '', active: true }]
+                : []
     )
 
     const [loading, setLoading] = useState(false)
@@ -66,6 +68,13 @@ export default function ProjectEditForm({ project, clients }: ProjectEditFormPro
         newLinks[index][field] = value
         setLinks(newLinks)
     }
+
+    // Populate default row when multi-country enabled and no existing links
+    useEffect(() => {
+        if (formData.is_multi_country && links.length === 0) {
+            setLinks([{ country_code: '', target_url: '', active: true }])
+        }
+    }, [formData.is_multi_country])
 
     const removeLink = (index: number) => {
         setLinks(links.filter((_, i) => i !== index))

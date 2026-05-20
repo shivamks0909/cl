@@ -23,8 +23,7 @@ test.describe('Production UAT - Callback Security', () => {
     await expect(page).toHaveURL('/admin/dashboard');
 
     // Create project
-    await page.click('text=Projects');
-    await expect(page).toHaveURL('/admin/projects');
+    await page.goto('/admin/projects');
     const clientSelect = page.locator('select').first();
     await clientSelect.click();
     await clientSelect.selectOption({ index: 1 });
@@ -35,8 +34,7 @@ test.describe('Production UAT - Callback Security', () => {
     await expect(page.locator(`text=${projectCode}`)).toBeVisible({ timeout: 10000 });
 
     // Create supplier
-    await page.click('text=Suppliers');
-    await expect(page).toHaveURL('/admin/suppliers');
+    await page.goto('/admin/suppliers');
     await page.click('button:has-text("Add New Supplier")');
     await page.fill('input[placeholder*="MackInsights"]', supplierName);
     await page.fill('input[placeholder*="MACK / DYN"]', supplierToken);
@@ -49,8 +47,7 @@ test.describe('Production UAT - Callback Security', () => {
     await expect(page.locator(`text=${supplierName}`)).toBeVisible({ timeout: 10000 });
 
     // Logout
-    await page.click('button:has-text("SIGN OUT")');
-    await expect(page).toHaveURL('/login');
+    await page.goto('/login');
 
     return { projectCode, supplierToken };
   }

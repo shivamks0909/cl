@@ -37,7 +37,7 @@ test.describe('Production UAT - PID Generation as UID Feature', () => {
     await page.fill('input[type="url"]', `${PROD_URL}/client-survey`);
 
     // Toggle enabled
-    await page.locator('div:has-text("Use Generated PID as User ID (UID)")').getByRole('button').click();
+    await page.getByTestId('force-pid-as-uid-toggle').click();
 
     await page.click('button:has-text("Deploy Enterprise Route")');
     await expect(page.locator(`text=${projectCode}`)).toBeVisible({ timeout: 10000 });

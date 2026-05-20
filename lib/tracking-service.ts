@@ -1,4 +1,4 @@
-﻿import { getUnifiedDb } from './unified-db'
+import { getUnifiedDb } from './unified-db'
 import { auditService } from './audit-service'
 import * as crypto from 'crypto'
 
@@ -94,7 +94,13 @@ export class TrackingService {
       }
 
       // 4. GeoIP Validation (Strict Mode if requested)
-      if (ctx.geoData && ctx.queryParams.country) {
+      // Skip check for localhost, private IPs, and unknown geo (development/testing)
+      const isLocalhost = ['127.0.0.1', '::1', 'localhost', 'unknown'].includes(ctx.ip) || 
+                          ctx.ip.startsWith('192.168.') || 
+                          ctx.ip.startsWith('10.') ||
+                          ctx.geoData?.country === 'Unknown';
+      
+      if (ctx.geoData && ctx.queryParams.country && !isLocalhost) {
         if (ctx.geoData.country !== ctx.queryParams.country) {
           await auditService.log({
             event_type: 'SECURITY_GEO_MISMATCH',
@@ -432,7 +438,7 @@ const { data: response, error: rError } = await db
     const uidToUse = rid || session || 'N/A'
 
     const placeholders = {
-        uid: ['[UID]', '{uid}', '{UID}', '[uid]', '{ResID}', '{rid}', '{ID}', '[ID]', '{id}'],
+        uid: ['[UID]', '{uid}', '{UID}', '[uid]', '{ResID}', '{rid}', '{ID}', '[ID]', '{id}', '[identifier]'],
         pid: ['[PID]', '{pid}', '{PID}', '[pid]', '{PID_CODE}'],
         sessionId: ['[SESSION_ID]', '{session_id}', '{oi_session}', '[TRANSACTION_ID]', '{transactionId}', '[TRANSACTIONID]']
     }
