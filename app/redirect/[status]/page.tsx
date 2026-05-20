@@ -192,7 +192,7 @@ export default async function RedirectCallbackPage({
     // RESOLUTION PATH 2: Legacy clickid / oi_session (backward compatibility)
     // ========================================================================
     if (clickid) {
-        const hostHeader = headersList.get('host') || 'localhost:3000'
+        const hostHeader = headersList.get('host') || process.env.NEXT_PUBLIC_APP_URL?.replace(/^https?:\/\//, '') || 'track.opinioninsights.in'
         const protocol = headersList.get('x-forwarded-proto') || 'http'
         const baseUrl = `${protocol}://${hostHeader}`
         const dummyRequest = new NextRequest(new URL(baseUrl), { headers: headersList })
@@ -255,7 +255,7 @@ export default async function RedirectCallbackPage({
     // DEVELOPMENT BYPASS: For localhost/private IPs, skip trust engine and show landing directly
     if (ip === '127.0.0.1' || ip === '::1' || ip.startsWith('192.168.') || ip.startsWith('10.') || ip === 'Unknown') {
         console.log('[RedirectCallback] DEV BYPASS: IP=' + ip + ' - showing landing page without trust check')
-        const hostHeader = headersList.get('host') || 'localhost:3000'
+        const hostHeader = headersList.get('host') || process.env.NEXT_PUBLIC_APP_URL?.replace(/^https?:\/\//, '') || 'track.opinioninsights.in'
         const protocol = headersList.get('x-forwarded-proto') || 'http'
         const baseUrl = protocol + '://' + hostHeader
         const dummyRequest = new NextRequest(new URL(baseUrl), { headers: headersList })
