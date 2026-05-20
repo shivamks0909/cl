@@ -35,7 +35,6 @@ const statusMap: Record<string, string> = {
   'quotafull': 'quota_full'
 };
 
-/** Render a generic landing page without any DB mutation */
 function LandingPageOnly({
     routeStatus,
     pid,
@@ -47,26 +46,8 @@ function LandingPageOnly({
     uid: string
     note?: string
 }) {
-    const label =
-        routeStatus === 'complete' ? 'Survey Completed' :
-        routeStatus === 'terminate' ? 'Survey Terminated' :
-        'Quota Full'
-
-    return (
-        <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center p-4">
-            <div className="max-w-2xl w-full bg-white rounded-lg shadow-xl p-8 text-center">
-                <h1 className="text-3xl font-bold text-gray-800 mb-4">Survey System</h1>
-                <p className="text-gray-600 mb-6">{label}</p>
-                <p className="text-sm text-gray-500">
-                    Project: {pid}<br/>
-                    User: {uid}
-                </p>
-                {note && (
-                    <p className="text-xs text-gray-400 mt-4">({note})</p>
-                )}
-            </div>
-        </div>
-    )
+    const statusDisplay = routeStatus === 'quotafull' ? 'Quota Full' : routeStatus === 'terminate' ? 'Terminated' : 'Complete'
+    return <WavyOutcomeView status={statusDisplay} statusKeyword={routeStatus} session={undefined} ip="0.0.0.0" />
 }
 
 export default async function RedirectCallbackPage({ 
