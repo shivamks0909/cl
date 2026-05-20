@@ -391,7 +391,11 @@ export async function getUnifiedDb() {
 
     const key = process.env.SUPABASE_SERVICE_ROLE_KEY || supabaseAnonKey
     if (!key) {
-        throw new Error('Missing Supabase configuration: SUPABASE_SERVICE_ROLE_KEY or NEXT_PUBLIC_SUPABASE_ANON_KEY required')
+        console.warn('[unified-db] Missing Supabase credentials, falling back to SQLite shim')
+        return {
+            source: 'sqlite' as const,
+            database: new SqliteSupabaseShim() as any
+        }
     }
 
     const supabase = createClient(supabaseUrl, key)
