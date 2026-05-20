@@ -341,8 +341,8 @@ export default async function RedirectCallbackPage({
     const targetUrl = `/paused?title=${encodeURIComponent(errorMsg)}&uid=${encodeURIComponent(uid)}&pid=${encodeURIComponent(pid)}&reason=${encodeURIComponent(trustResult.reason || 'failed_trust_gates')}`;
     console.log(`[RedirectCallback] Redirecting untrusted callback to: ${targetUrl}`);
     redirect(targetUrl);
-    } catch (error) {
-        if (error instanceof Response) {
+    } catch (error: any) {
+        if (error instanceof Response || error?.digest?.startsWith('NEXT_REDIRECT')) {
             throw error;
         }
         console.error('[RedirectCallback] Fatal error in redirect handler:', error);
