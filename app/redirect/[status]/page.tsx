@@ -76,6 +76,9 @@ export default async function RedirectCallbackPage({
     params: Promise<{ status: string }>,
     searchParams: Promise<{ [key: string]: string | string[] | undefined }>
 }) {
+    let pid = 'N/A';
+    let uid = 'N/A';
+    try {
 
     const { status: routeStatus } = await params;
     const paramsObj = await searchParams;
@@ -98,8 +101,8 @@ export default async function RedirectCallbackPage({
                      || (paramsObj.clickid as string)
                      || (paramsObj.cid as string)
                      || null
-    const pid         = (paramsObj.pid as string) || (paramsObj.code as string) || 'N/A'
-    const uid         = (paramsObj.uid as string) || 'N/A'
+    pid = (paramsObj.pid as string) || (paramsObj.code as string) || 'N/A'
+    uid = (paramsObj.uid as string) || 'N/A'
 
     console.log(`[RedirectCallback] status=${routeStatus} oi_sid=${oi_sid} clickid=${clickid} pid=${pid} uid=${uid} ip=${ip}`)
 
@@ -338,4 +341,11 @@ export default async function RedirectCallbackPage({
     const targetUrl = `/paused?title=${encodeURIComponent(errorMsg)}&uid=${encodeURIComponent(uid)}&pid=${encodeURIComponent(pid)}&reason=${encodeURIComponent(trustResult.reason || 'failed_trust_gates')}`;
     console.log(`[RedirectCallback] Redirecting untrusted callback to: ${targetUrl}`);
     redirect(targetUrl);
+    } catch (error) {
+        if (error instanceof Response) {
+            throw error;
+        }
+        console.error('[RedirectCallback] Fatal error in redirect handler:', error);
+        return <LandingPageOnly routeStatus="terminate" pid={pid} uid={uid} note="Technical error occurred. Please contact support." />;
+    }
 }
