@@ -54,9 +54,13 @@ export function WavyOutcomeView({ status, statusKeyword, session: sessionProp, i
   const params = useSessionParams();
   const [stats, setStats] = useState<any>(null);
   const [isLoading, setIsLoading] = useState(false);
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => { setMounted(true); }, []);
 
   // Use session from prop (passed by server component) or fall back to URL params
-  const effectiveSession = sessionProp || params.session;
+  // Only use params.session after mount to avoid hydration mismatch
+  const effectiveSession = sessionProp || (mounted ? params.session : "-");
 
   useEffect(() => {
     // Tier 1: fetch by oi_session (most accurate, UUID-based)
@@ -98,9 +102,9 @@ export function WavyOutcomeView({ status, statusKeyword, session: sessionProp, i
     return bad.includes(val.toLowerCase().trim()) ? "—" : val;
   };
 
-  const uid = sanitize(stats?.supplierRid || params.uid);
-  const pid = sanitize(stats?.projectCode || params.pid);
-  const loiRaw = parseInt(params.loi || "0", 10);
+  const uid = sanitize(stats?.supplierRid || (mounted ? params.uid : "-"));
+  const pid = sanitize(stats?.projectCode || (mounted ? params.pid : "-"));
+  const loiRaw = parseInt(mounted ? (params.loi || "0") : "0", 10);
   const formatLoi = (s: number) => {
     if (!s || s <= 0) return "—";
     const m = Math.floor(s / 60), sec = s % 60;
@@ -109,20 +113,23 @@ export function WavyOutcomeView({ status, statusKeyword, session: sessionProp, i
   const loiStr = stats?.loi !== undefined 
     ? `${stats.loi} mins` 
     : (loi !== undefined ? `${loi} mins` : formatLoi(loiRaw));
-  const dateStr = stats?.endTime
-    ? new Date(stats.endTime * 1000).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" })
-    : new Date().toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" });
+  const dateStr = mounted
+    ? (stats?.endTime
+        ? new Date(stats.endTime * 1000).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" })
+        : new Date().toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" }))
+    : '—';
 
   const cfg = STATUS_CONFIG[statusKeyword] ?? STATUS_CONFIG.terminate;
 
   // Allow custom title/desc from query params (used by paused page)
-  const customTitle = params.title || undefined;
-  const customDesc = params.desc || undefined;
+  // Only use after mount to avoid hydration mismatch
+  const customTitle = mounted ? (params.title || undefined) : undefined;
+  const customDesc = mounted ? (params.desc || undefined) : undefined;
 
   const cards = [
     { label: "Project ID", value: pid },
     { label: "User ID", value: uid },
-    { label: "IP Address", value: sanitize(ip || params.ip || stats?.ip) },
+    { label: "IP Address", value: sanitize(ip || (mounted ? params.ip : undefined) || stats?.ip) },
     { label: "Status", value: status },
     { label: "LOI", value: loiStr },
     { label: "Date", value: dateStr },
