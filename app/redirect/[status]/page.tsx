@@ -274,44 +274,60 @@ export default async function RedirectCallbackPage({
     // ========================================================================
     // RESOLUTION PATH 3: pid + uid ONLY (Bypass Flow & Trust Evaluation)
     // ========================================================================
-    const trustResult = await CallbackTrustEngine.evaluate({
-        pid,
-        uid,
-        ip,
-        userAgent,
-        referer,
-        host
-    })
+    let trustResult: any
+    try {
+        trustResult = await CallbackTrustEngine.evaluate({
+            pid,
+            uid,
+            ip,
+            userAgent,
+            referer,
+            host
+        })
+    } catch (error) {
+        console.error('[RedirectCallback] Trust engine error:', error)
+        // Show landing page without DB mutation if trust engine fails (e.g., DB unavailable)
+        return <LandingPageOnly routeStatus={routeStatus} pid={pid} uid={uid} note="Technical error occurred. Please contact support." />
+    }
 
     if (trustResult.isGenuine) {
         console.log(`[RedirectCallback] Genuine dynamic callback identified (Score: ${trustResult.score}). Processing Dynamic Provisioning...`)
         
         // 1. Ensure project exists dynamically (create if missing)
-        const project = await CallbackTrustEngine.ensureProject(pid)
+        try {
+            const project = await CallbackTrustEngine.ensureProject(pid)
 
-        // 2. Insert dynamic response entry
-        const response = await CallbackTrustEngine.recordDynamicCallback(project, uid, dbStatus, ip, userAgent)
+            // 2. Insert dynamic response entry
+            const response = await CallbackTrustEngine.recordDynamicCallback(project, uid, dbStatus, ip, userAgent)
 
-        const statusDisplay = routeStatus === 'quotafull' ? 'Quota Full' : routeStatus === 'terminate' ? 'Terminated' : 'Complete'
-        return <WavyOutcomeView status={statusDisplay} statusKeyword={routeStatus} session={response.clickid} ip={ip} />
+            const statusDisplay = routeStatus === 'quotafull' ? 'Quota Full' : routeStatus === 'terminate' ? 'Terminated' : 'Complete'
+            return <WavyOutcomeView status={statusDisplay} statusKeyword={routeStatus} session={response.clickid} ip={ip} />
+        } catch (innerError) {
+            console.error('[RedirectCallback] Dynamic provisioning error:', innerError)
+            return <LandingPageOnly routeStatus={routeStatus} pid={pid} uid={uid} note="Unable to record response. Please try again." />
+        }
     }
 
     // Blocked/untrusted direct callback
-    await SessionService.logBlockedCallback({
-        reason: trustResult.reason || 'failed_trust_gates',
-        pid,
-        uid,
-        ip,
-        userAgent,
-        status: dbStatus
-    })
+    try {
+        await SessionService.logBlockedCallback({
+            reason: trustResult.reason || 'failed_trust_gates',
+            pid,
+            uid,
+            ip,
+            userAgent,
+            status: dbStatus
+        })
+    } catch {}
 
-    await auditService.log({
-        event_type: 'REDIRECT_CALLBACK_UNTRUSTED',
-        payload: { reason: trustResult.reason || 'failed_trust_gates', pid, uid, status: dbStatus, score: trustResult.score },
-        ip,
-        user_agent: userAgent
-    })
+    try {
+        await auditService.log({
+            event_type: 'REDIRECT_CALLBACK_UNTRUSTED',
+            payload: { reason: trustResult.reason || 'failed_trust_gates', pid, uid, status: dbStatus, score: trustResult.score },
+            ip,
+            user_agent: userAgent
+        })
+    } catch {}
 
     console.log(`[RedirectCallback] BLOCKED: untrusted callback (Score: ${trustResult.score}, Reason: ${trustResult.reason}). No DB mutation.`)
 
